@@ -10,9 +10,13 @@ import {
   Puzzle,
   Settings,
   Menu,
-  X
+  X,
+  CreditCard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '../ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
 
 const navigationItems = [
   { name: 'Visão Geral', href: '/', icon: Home },
@@ -24,6 +28,63 @@ const navigationItems = [
   { name: 'Integrações', href: '/integracoes', icon: Puzzle },
   { name: 'Configurações', href: '/configuracoes', icon: Settings },
 ];
+
+const AccountStatusCard = () => {
+  const { user } = useAuth();
+  const { profile, loading, error } = useProfile(user);
+
+  const formatBillingStatus = (status: string | undefined) => {
+    if (!status) return '-';
+    const statusMap: { [key: string]: string } = {
+      trial: 'Teste Gratuito',
+      active: 'Ativo',
+      paid: 'Pago',
+      inactive: 'Inativo',
+      canceled: 'Cancelado',
+    };
+    return statusMap[status] || status;
+  };
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return '-';
+    try {
+      return new Date(dateString).toLocaleDateString('pt-BR');
+    } catch (error) {
+      return 'Data inválida';
+    }
+  };
+
+  return (
+    <div className="px-4 pb-6">
+      <div className="p-4 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
+        <div className="flex items-center mb-2">
+          <CreditCard className="h-5 w-5 mr-3" />
+          <h3 className="text-sm font-semibold">Status da Conta</h3>
+        </div>
+        {loading ? (
+          <div className="space-y-2 animate-pulse">
+            <div className="h-3 bg-gray-500/30 rounded w-3/4"></div>
+            <div className="h-3 bg-gray-500/30 rounded w-1/2"></div>
+          </div>
+        ) : error ? (
+          <p className="text-xs text-red-400">Erro ao carregar plano.</p>
+        ) : (
+          <>
+            <p className="text-xs mt-2">
+              Plano: <span className="font-bold">{formatBillingStatus(profile?.billing_status)}</span>
+            </p>
+            <p className="text-xs mt-1">
+              Válido até: {formatDate(profile?.current_period_ends_at)}
+            </p>
+          </>
+        )}
+        <Button variant="secondary" className="w-full mt-4 h-8 text-xs">
+          Gerenciar Assinatura
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 export const Sidebar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -97,6 +158,8 @@ export const Sidebar = () => {
             );
           })}
         </nav>
+
+        <AccountStatusCard />
 
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border">
