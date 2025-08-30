@@ -1,3 +1,7 @@
+console.log("Variáveis de Ambiente do Vite:", import.meta.env);
+
+import React from 'react';
+
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'

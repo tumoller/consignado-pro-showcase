@@ -16,7 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProfile } from '@/hooks/useProfile';
+
 
 const navigationItems = [
   { name: 'Visão Geral', href: '/', icon: Home },
@@ -24,14 +24,14 @@ const navigationItems = [
   { name: 'Conversas', href: '/conversas', icon: MessageSquare },
   { name: 'Campanhas', href: '/campanhas', icon: Megaphone },
   { name: 'Automação', href: '/automacao', icon: Zap },
+  { name: 'Instâncias', href: '/instances', icon: Puzzle },
   { name: 'Templates', href: '/templates', icon: FileText },
   { name: 'Integrações', href: '/integracoes', icon: Puzzle },
   { name: 'Configurações', href: '/configuracoes', icon: Settings },
 ];
 
 const AccountStatusCard = () => {
-  const { user } = useAuth();
-  const { profile, loading, error } = useProfile(user);
+  const { profile, loading, error } = useAuth();
 
   const formatBillingStatus = (status: string | undefined) => {
     if (!status) return '-';
