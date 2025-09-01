@@ -2,8 +2,9 @@
 
 import dotenv from 'dotenv'; // 1. Importe o dotenv
 import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import getQrCodeHandler from './api/wuzapi/get-qrcode.js'; // 1. IMPORTE A NOVA ROTA
+import deleteInstanceHandler from './api/wuzapi/delete-instance.js';
+
 
 dotenv.config(); // 2. Chame dotenv.config() para carregar as variáveis de ambiente
 
@@ -22,6 +23,9 @@ app.use(express.json());
 app.get('/api/wuzapi/get-status', getStatusHandler);
 app.post('/api/wuzapi/create-instance', createInstanceHandler);
 app.post('/api/wuzapi/connect-instance', connectInstanceHandler);
+app.post('/api/wuzapi/get-qrcode', getQrCodeHandler);
+app.post('/api/wuzapi/delete-instance', deleteInstanceHandler);
+
 // Adicione outras rotas aqui
 
 // Inicie o servidor da API
