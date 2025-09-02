@@ -1,4 +1,4 @@
-// src/pages/Instances.tsx (VERSÃO FINAL E CORRETA)
+// Arquivo: src/pages/Instances.tsx
 
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
@@ -9,12 +9,13 @@ import { PlusCircle, Loader2 } from 'lucide-react';
 
 // Componentes da UI
 import { Button } from '../components/ui/button';
-import { Skeleton } from '../components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { InstanceCard } from '../components/instances/InstanceCard';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { InstanceRow } from '@/components/instances/InstanceRow'; // Importa o novo componente de linha
 
+// Exportamos o tipo para que outros arquivos (como InstanceRow) possam usá-lo
 export type UserInstance = {
   instance_id: string;
   name: string;
@@ -31,7 +32,7 @@ export default function Instances() {
   const [newInstanceName, setNewInstanceName] = useState('');
   const [modalError, setModalError] = useState<string | null>(null);
 
-  // BUSCA DE DADOS (JÁ ESTÁ CORRETA)
+  // Hook para buscar a lista de instâncias do Supabase
   const { data: instances, isLoading } = useQuery<UserInstance[]>({
     queryKey: ['instances', activeWorkspaceId],
     queryFn: async () => {
@@ -45,30 +46,26 @@ export default function Instances() {
       return data || [];
     },
     enabled: !!activeWorkspaceId,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
 
-  // ==================================================================
-  // MUTATION DE CRIAÇÃO (A VERSÃO CORRETA)
-  // ==================================================================
+  // Hook para a ação de criar uma nova instância
   const createInstanceMutation = useMutation({
     mutationFn: async (name: string) => {
       if (!activeWorkspaceId) throw new Error("Workspace não selecionado.");
-
-      // PASSO 1: Chamar nossa API de backend para criar na Wuzapi
+      
       const apiResponse = await fetch('/api/wuzapi/create-instance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instancePhoneNumber: name }),
       });
-
       if (!apiResponse.ok) {
         const errorData = await apiResponse.json();
-        // Lança um erro para ser pego pelo onError da mutation
         throw new Error(errorData.error || "Falha ao criar instância na Wuzapi");
       }
       const { wuzapiData } = await apiResponse.json();
 
-      // PASSO 2: Se o passo 1 funcionou, salvar a nova instância no Supabase
       const { error: dbError } = await supabase
         .from('user_instances')
         .insert({
@@ -76,19 +73,15 @@ export default function Instances() {
           name: name,
           token: wuzapiData.token,
           workspace_id: activeWorkspaceId,
-          status: 'disconnected', // Status inicial sempre será desconectado
+          status: 'disconnected',
         });
-
       if (dbError) {
-        // Se salvar no DB falhar, idealmente deveríamos deletar da Wuzapi (lógica futura)
         throw new Error(`Erro ao salvar no banco de dados: ${dbError.message}`);
       }
-      
       return wuzapiData;
     },
     onSuccess: () => {
       toast.success("Instância criada com sucesso!");
-      // Invalida a query para que a lista na tela se atualize com a nova instância
       queryClient.invalidateQueries({ queryKey: ['instances', activeWorkspaceId] });
       setIsModalOpen(false);
       setNewInstanceName('');
@@ -145,21 +138,36 @@ export default function Instances() {
         </Dialog>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-40 w-full" />
-        </div>
-      ) : !instances || instances.length === 0 ? (
-        <div className="text-center py-10">
-          <p>Nenhuma instância encontrada.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {instances.map((instance) => (
-            <InstanceCard key={instance.instance_id} instance={instance} />
-          ))}
-        </div>
-      )}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center h-24">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ) : !instances || instances.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center h-24">
+                  Nenhuma instância encontrada.
+                </TableCell>
+              </TableRow>
+            ) : (
+              instances.map((instance) => (
+                <InstanceRow key={instance.instance_id} instance={instance} />
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
