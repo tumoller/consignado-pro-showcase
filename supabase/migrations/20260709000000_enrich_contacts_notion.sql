@@ -399,7 +399,7 @@ where s.cpf_n is null and s.phone_t is not null
 
 -- ===== 4. CRIAR novos contatos (Notion sem match no banco) =====
 insert into contacts (workspace_id, nome, phone_number, cpf, rg, exp_rg, data_nasc, nome_mae, nome_pai, esp_benef, nb_mat, orgao_siape, recebimento_beneficio, banco, agencia, conta, nome_rep_legal, cpf_rep_legal, data_nasc_rl, rua, numero, bairro, cidade, uf, cep, lembrete_op, contexto_conversa, resumo_emprestimos, email, qualificacao, aquisicao, convenio, status, created_at, updated_at)
-select 1, s.nome, s.phone_full, s.cpf, s.rg, nullif(s.exp_rg,'')::date, nullif(s.data_nasc,'')::date, s.nome_mae, s.nome_pai, s.esp_benef, s.nb_mat, s.orgao_siape, s.recebimento_beneficio, s.banco, s.agencia, s.conta, s.nome_rep_legal, s.cpf_rep_legal, nullif(s.data_nasc_rl,'')::date, s.rua, s.numero, s.bairro, s.cidade, s.uf, s.cep, nullif(s.lembrete_op,'')::timestamptz, s.contexto_conversa, s.resumo_emprestimos, s.email, s.qualificacao, s.aquisicao, s.convenio, s.status, now(), now()
+select 1, s.nome, coalesce(nullif(s.phone_full,''), 'notion:'||left(md5(coalesce(s.nome,'')||coalesce(s.cpf,'')),10)), s.cpf, s.rg, nullif(s.exp_rg,'')::date, nullif(s.data_nasc,'')::date, s.nome_mae, s.nome_pai, s.esp_benef, s.nb_mat, s.orgao_siape, s.recebimento_beneficio, s.banco, s.agencia, s.conta, s.nome_rep_legal, s.cpf_rep_legal, nullif(s.data_nasc_rl,'')::date, s.rua, s.numero, s.bairro, s.cidade, s.uf, s.cep, nullif(s.lembrete_op,'')::timestamptz, s.contexto_conversa, s.resumo_emprestimos, s.email, s.qualificacao, s.aquisicao, s.convenio, s.status, now(), now()
 from stg_notion_clientes s
 where not exists (
     select 1 from contacts c
