@@ -1,241 +1,209 @@
-import { useState, useEffect } from 'react';
-import { Users, MessageSquare, Send, TrendingUp, Zap } from 'lucide-react';
+// src/pages/Index.tsx — Visão Geral com dados reais do Supabase
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { Users, FileText, Wallet, AlarmClock } from 'lucide-react';
+import {
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { ChartCard } from '@/components/ui/ChartCard';
-import { DataTable, StatusBadge } from '@/components/ui/DataTable';
+import { DataTable } from '@/components/ui/DataTable';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { 
-  kpiData, 
-  timeSeriesData, 
-  ultimasConversas,
-  formatNumber,
-  formatPercentage,
-  simulateLoading 
-} from '@/data/mock';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import {
+  useContacts,
+  usePropostas,
+  useFollowUps,
+  useConversations,
+  fmtBRL,
+  fmtDateTime,
+  chatMessageText,
+} from '@/hooks/useCrmData';
 
-// Dynamic imports para os gráficos (simulando comportamento Next.js)
-const AreaChart = ({ data }: { data: any[] }) => {
-  const [mounted, setMounted] = useState(false);
-  
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-  
-  if (!mounted) {
-    return (
-      <div className="h-[300px] w-full bg-muted animate-pulse rounded flex items-center justify-center">
-        <div className="text-muted-foreground">Carregando gráfico...</div>
-      </div>
-    );
-  }
-  
-  return <div className="h-[300px] w-full bg-muted/20 rounded flex items-center justify-center border-2 border-dashed border-border">
-    <div className="text-center text-muted-foreground">
-      <TrendingUp className="h-8 w-8 mx-auto mb-2" />
-      <div className="font-medium">Gráfico de Área</div>
-      <div className="text-sm">Dados: {data.length} pontos</div>
-    </div>
-  </div>;
-};
-
-const BarChart = ({ data }: { data: any[] }) => {
-  const [mounted, setMounted] = useState(false);
-  
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-  
-  if (!mounted) {
-    return (
-      <div className="h-[300px] w-full bg-muted animate-pulse rounded flex items-center justify-center">
-        <div className="text-muted-foreground">Carregando gráfico...</div>
-      </div>
-    );
-  }
-  
-  return <div className="h-[300px] w-full bg-muted/20 rounded flex items-center justify-center border-2 border-dashed border-border">
-    <div className="text-center text-muted-foreground">
-      <div className="flex space-x-2 mb-2 justify-center">
-        <div className="w-4 h-8 bg-primary/60 rounded"></div>
-        <div className="w-4 h-6 bg-secondary/60 rounded"></div>
-        <div className="w-4 h-10 bg-primary/60 rounded"></div>
-      </div>
-      <div className="font-medium">Gráfico de Barras</div>
-      <div className="text-sm">Envios x Respostas</div>
-    </div>
-  </div>;
-};
+const isPaga = (s: string | null | undefined) => (s ?? '').toLowerCase().startsWith('pag');
 
 const Index = () => {
-  const [isLoading, setIsLoading] = useState(true);
+  const { activeWorkspaceId } = useWorkspace();
+  const contacts = useContacts(activeWorkspaceId);
+  const propostas = usePropostas(activeWorkspaceId);
+  const followUps = useFollowUps(activeWorkspaceId);
+  const conversations = useConversations(activeWorkspaceId);
 
-  useEffect(() => {
-    simulateLoading(800).then(() => setIsLoading(false));
-  }, []);
+  const stats = useMemo(() => {
+    const props = propostas.data ?? [];
+    const pagas = props.filter((p) => isPaga(p.status));
+    const comissaoTotal = pagas.reduce((acc, p) => acc + (Number(p.comissao) || 0), 0);
 
-  const tableColumns = [
-    {
-      key: 'nome',
-      title: 'Contato',
-    },
-    {
-      key: 'telefone',
-      title: 'Telefone',
-    },
-    {
-      key: 'ultimaMensagem',
-      title: 'Última Mensagem',
-      render: (value: string) => (
-        <div className="max-w-xs truncate" title={value}>
-          {value}
-        </div>
-      ),
-    },
-    {
-      key: 'status',
-      title: 'Status',
-      render: (value: 'aberta' | 'fechada') => <StatusBadge status={value} />,
-    },
-    {
-      key: 'atualizadoEm',
-      title: 'Atualizado',
-      render: (value: string) => (
-        <span className="text-muted-foreground text-sm">
-          {value}
-        </span>
-      ),
-    },
-  ];
+    // comissão por mês (data_cip_averb)
+    const porMes = new Map<string, number>();
+    for (const p of pagas) {
+      if (!p.data_cip_averb) continue;
+      const mes = p.data_cip_averb.slice(0, 7); // YYYY-MM
+      porMes.set(mes, (porMes.get(mes) ?? 0) + (Number(p.comissao) || 0));
+    }
+    const chart = [...porMes.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([mes, valor]) => ({
+        mes: `${mes.slice(5)}/${mes.slice(2, 4)}`,
+        valor: Math.round(valor * 100) / 100,
+      }));
+
+    // status das propostas
+    const porStatus = new Map<string, number>();
+    for (const p of props) {
+      const s = p.status || 'Sem status';
+      porStatus.set(s, (porStatus.get(s) ?? 0) + 1);
+    }
+    const statusList = [...porStatus.entries()].sort(([, a], [, b]) => b - a);
+
+    const fups = followUps.data ?? [];
+    const pendentes = fups.filter((f) => f.status !== 'done');
+
+    return {
+      totalPropostas: props.length,
+      pagas: pagas.length,
+      comissaoTotal,
+      chart,
+      statusList,
+      followUpsPendentes: pendentes.length,
+    };
+  }, [propostas.data, followUps.data]);
+
+  const conversasData = useMemo(
+    () =>
+      (conversations.data ?? []).slice(0, 8).map((c) => ({
+        nome: c.contact_name || c.session_id,
+        ultimaMensagem: chatMessageText(c.last_message),
+        atualizadoEm: fmtDateTime(c.last_message_time),
+      })),
+    [conversations.data]
+  );
+
+  const isLoading = contacts.isLoading || propostas.isLoading;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">Visão Geral</h1>
         <p className="text-muted-foreground mt-1">
-          Acompanhe o desempenho das suas campanhas de consignado
+          Sua operação de consignado em números reais
         </p>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KpiCard
-          title="Leads Ativos"
-          value={formatNumber(kpiData.leadsAtivos)}
-          variation={kpiData.variacaoLeads}
+          title="Contatos"
+          value={contacts.data?.length ?? 0}
           icon={<Users className="h-5 w-5" />}
-          isLoading={isLoading}
+          isLoading={contacts.isLoading}
         />
         <KpiCard
-          title="Conversas Ativas"
-          value={kpiData.conversasAtivas}
-          variation={kpiData.variacaoConversas}
-          icon={<MessageSquare className="h-5 w-5" />}
-          isLoading={isLoading}
+          title="Propostas"
+          value={stats.totalPropostas}
+          icon={<FileText className="h-5 w-5" />}
+          isLoading={propostas.isLoading}
         />
         <KpiCard
-          title="Mensagens Hoje"
-          value={kpiData.mensagensHoje}
-          variation={kpiData.variacaoMensagens}
-          icon={<Send className="h-5 w-5" />}
-          isLoading={isLoading}
+          title="Comissão (pagas)"
+          value={fmtBRL(stats.comissaoTotal)}
+          icon={<Wallet className="h-5 w-5" />}
+          isLoading={propostas.isLoading}
         />
         <KpiCard
-          title="Taxa de Resposta"
-          value={formatPercentage(kpiData.taxaResposta)}
-          variation={kpiData.variacaoTaxa}
-          icon={<TrendingUp className="h-5 w-5" />}
-          isLoading={isLoading}
+          title="Follow-ups pendentes"
+          value={stats.followUpsPendentes}
+          icon={<AlarmClock className="h-5 w-5" />}
+          isLoading={followUps.isLoading}
         />
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard
-          title="Respostas nos Últimos Dias"
-          showPeriodSelector
-          isLoading={isLoading}
-        >
-          <AreaChart data={timeSeriesData} />
-        </ChartCard>
-
-        <ChartCard
-          title="Envios x Respostas"
-          showPeriodSelector
-          isLoading={isLoading}
-        >
-          <BarChart data={timeSeriesData} />
-        </ChartCard>
-      </div>
-
-      {/* Table and CTA */}
+      {/* Gráfico + status */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <DataTable
-            title="Últimas Conversas"
-            columns={tableColumns}
-            data={ultimasConversas}
-            isLoading={isLoading}
-          />
+          <ChartCard title="Comissão paga por mês" isLoading={isLoading}>
+            {stats.chart.length === 0 ? (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                Sem dados de comissão ainda
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <RechartsBarChart data={stats.chart} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="mes" fontSize={12} className="text-muted-foreground" />
+                  <YAxis
+                    fontSize={12}
+                    className="text-muted-foreground"
+                    tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [fmtBRL(value), 'Comissão']}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                    }}
+                  />
+                  <Bar dataKey="valor" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </RechartsBarChart>
+              </ResponsiveContainer>
+            )}
+          </ChartCard>
         </div>
 
-        <div className="space-y-6">
-          {/* CTA Wuzapi */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-center space-y-4">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto">
-                  <Zap className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">
-                    Integração Wuzapi
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Conecte sua conta Wuzapi para automatizar conversas
-                  </p>
-                </div>
-                <Button className="w-full" disabled>
-                  Conectar Wuzapi
-                </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Propostas por status</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {stats.statusList.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhuma proposta.</p>
+            )}
+            {stats.statusList.map(([status, count]) => (
+              <div key={status} className="flex items-center justify-between">
+                <Badge variant={isPaga(status) ? 'default' : 'secondary'}>{status}</Badge>
+                <span className="text-sm font-medium">{count}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Status do Sistema */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="font-semibold text-foreground mb-4">
-                Status do Sistema
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">WhatsApp API</span>
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 bg-success rounded-full mr-2"></div>
-                    <span className="text-sm font-medium text-success">Online</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Banco de Dados</span>
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 bg-success rounded-full mr-2"></div>
-                    <span className="text-sm font-medium text-success">Online</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Automação</span>
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 bg-warning rounded-full mr-2"></div>
-                    <span className="text-sm font-medium text-warning">Pausada</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            ))}
+            <Button asChild variant="outline" className="w-full mt-2">
+              <Link to="/propostas">Ver todas as propostas</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Últimas conversas */}
+      <DataTable
+        title="Últimas conversas (WhatsApp)"
+        isLoading={conversations.isLoading}
+        columns={[
+          { key: 'nome', title: 'Contato' },
+          {
+            key: 'ultimaMensagem',
+            title: 'Última mensagem',
+            render: (v: string) => (
+              <div className="max-w-md truncate" title={v}>
+                {v || '—'}
+              </div>
+            ),
+          },
+          {
+            key: 'atualizadoEm',
+            title: 'Atualizado',
+            render: (v: string) => <span className="text-muted-foreground text-sm">{v}</span>,
+          },
+        ]}
+        data={conversasData}
+      />
     </div>
   );
 };

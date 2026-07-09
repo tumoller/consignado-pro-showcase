@@ -11,7 +11,9 @@ import {
   Settings,
   Menu,
   X,
-  CreditCard
+  CreditCard,
+  Wallet,
+  AlarmClock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
@@ -21,6 +23,8 @@ import { useAuth } from '@/contexts/AuthContext';
 const navigationItems = [
   { name: 'Visão Geral', href: '/', icon: Home },
   { name: 'Contatos', href: '/contatos', icon: Users },
+  { name: 'Propostas', href: '/propostas', icon: Wallet },
+  { name: 'Follow-ups', href: '/followups', icon: AlarmClock },
   { name: 'Conversas', href: '/conversas', icon: MessageSquare },
   { name: 'Campanhas', href: '/campanhas', icon: Megaphone },
   { name: 'Automação', href: '/automacao', icon: Zap },

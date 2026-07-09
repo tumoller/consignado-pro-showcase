@@ -13,6 +13,8 @@ import Index from "./pages/Index";
 import Instances from "./pages/Instances";
 import Contatos from "./pages/Contatos";
 import Conversas from "./pages/Conversas";
+import Propostas from "./pages/Propostas";
+import FollowUps from "./pages/FollowUps";
 import Campanhas from "./pages/Campanhas";
 import Automacao from "./pages/Automacao";
 import Templates from "./pages/Templates";
@@ -52,6 +54,8 @@ const AppRoutes = () => {
               <Route path="/" element={<Index />} />
               <Route path="/instances" element={<Instances />} />
               <Route path="/contatos" element={<Contatos />} />
+              <Route path="/propostas" element={<Propostas />} />
+              <Route path="/followups" element={<FollowUps />} />
               <Route path="/conversas" element={<Conversas />} />
               <Route path="/campanhas" element={<Campanhas />} />
               <Route path="/automacao" element={<Automacao />} />
