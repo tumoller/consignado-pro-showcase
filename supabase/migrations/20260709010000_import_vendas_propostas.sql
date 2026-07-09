@@ -336,17 +336,20 @@ insert into stg_vendas (cpf_n, nome, produto, operacao, bco_op, bco_port, status
 -- garantir coluna para a parcela reduzida
 alter table propostas add column if not exists parcela_reduzida numeric;
 
+-- OBS: comissao e coluna GERADA (= saldo * cms_pct/100), que reproduz exatamente
+-- os valores manuais do Notion (296 conferidos, 0 divergencias). Nao inserimos nela.
+
 -- backup (idempotente)
 create table if not exists propostas_backup_20260708 as select * from propostas;
 
 -- inserir SOMENTE propostas com cliente identificado (match por CPF)
 insert into propostas (workspace_id, contact_id, produto, operacao, bco_op, bco_port, status, sub_status,
-  saldo, cms_pct, comissao, parcela, parcela_reduzida, qtde_parc, taxa, num_proposta, num_contrato,
+  saldo, cms_pct, parcela, parcela_reduzida, qtde_parc, taxa, num_proposta, num_contrato,
   data_cip_averb, promotora, created_at, updated_at)
 select 1,
   (select min(c.id) from contacts c where regexp_replace(coalesce(c.cpf,''),'\D','','g')=s.cpf_n),
   s.produto, s.operacao, s.bco_op, s.bco_port, s.status, s.sub_status,
-  nullif(s.saldo,'')::numeric, nullif(s.cms_pct,'')::numeric, nullif(s.comissao,'')::numeric,
+  nullif(s.saldo,'')::numeric, nullif(s.cms_pct,'')::numeric,
   nullif(s.parcela,'')::numeric, nullif(s.parcela_reduzida,'')::numeric, nullif(s.qtde_parc,'')::int,
   nullif(s.taxa,'')::numeric, s.num_proposta, s.num_contrato, nullif(s.data_cip_averb,'')::date,
   s.promotora, now(), now()
