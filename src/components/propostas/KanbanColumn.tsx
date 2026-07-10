@@ -9,7 +9,7 @@ interface KanbanColumnProps {
   title: string;
   propostas: Proposta[];
   onCardDrop: (id: number, targetStatus: string) => void;
-  onCardClick: (id: number) => void;
+  onCardClick: (proposta: Proposta) => void;
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -96,7 +96,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             key={proposta.id}
             proposta={proposta}
             onDragStart={handleDragStart}
-            onClick={() => onCardClick(proposta.id)}
+            onClick={() => onCardClick(proposta)}
           />
         ))}
         {propostas.length === 0 && (

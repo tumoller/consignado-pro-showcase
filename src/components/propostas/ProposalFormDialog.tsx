@@ -26,6 +26,7 @@ import {
   useContacts,
   useCreateProposta,
   useUpdateProposta,
+  useBancosAtivos,
 } from '@/hooks/useCrmData';
 
 interface ProposalFormDialogProps {
@@ -42,6 +43,7 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
   const { activeWorkspaceId } = useWorkspace();
   const createMutation = useCreateProposta(activeWorkspaceId);
   const updateMutation = useUpdateProposta(activeWorkspaceId);
+  const { data: bancos } = useBancosAtivos();
 
   // Estados do formulário
   const [contactId, setContactId] = useState<number | null>(null);
@@ -206,6 +208,7 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
                 placeholder={selectedContactName ? `Selecionado: ${selectedContactName}` : "Pesquise para selecionar o cliente..."}
                 value={searchContact}
                 className="pl-9"
+                disabled={!!proposta}
                 onChange={(e) => {
                   setSearchContact(e.target.value);
                   setShowContactList(true);
@@ -271,21 +274,62 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
             {/* Bancos */}
             <div className="space-y-1">
               <Label htmlFor="bcoOp">Banco Operador</Label>
-              <Input
-                id="bcoOp"
-                placeholder="Ex: PAN, BMG, C6"
-                value={bcoOp}
-                onChange={(e) => setBcoOp(e.target.value)}
-              />
+              <Select value={bcoOp || ''} onValueChange={setBcoOp}>
+                <SelectTrigger id="bcoOp">
+                  <SelectValue placeholder="Selecione o banco" />
+                </SelectTrigger>
+                <SelectContent>
+                  {bancos && bancos.filter(b => b.ativo).map((b) => (
+                    <SelectItem key={b.id} value={b.nome}>
+                      {b.nome}
+                    </SelectItem>
+                  ))}
+                  {(!bancos || bancos.length === 0) && (
+                    <>
+                      <SelectItem value="ITAÚ">ITAÚ</SelectItem>
+                      <SelectItem value="BANCO PAN">BANCO PAN</SelectItem>
+                      <SelectItem value="BMG">BMG</SelectItem>
+                      <SelectItem value="C6 BANK">C6 BANK</SelectItem>
+                      <SelectItem value="BRADESCO">BRADESCO</SelectItem>
+                      <SelectItem value="BANRISUL">BANRISUL</SelectItem>
+                      <SelectItem value="DAYCOVAL">DAYCOVAL</SelectItem>
+                      <SelectItem value="AGIBANK">AGIBANK</SelectItem>
+                      <SelectItem value="SAFRA">SAFRA</SelectItem>
+                      <SelectItem value="MERCANTIL">MERCANTIL</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label htmlFor="bcoPort">Banco Portador (se Portabilidade)</Label>
-              <Input
-                id="bcoPort"
-                placeholder="Ex: ITAU, BRADESCO"
-                value={bcoPort}
-                onChange={(e) => setBcoPort(e.target.value)}
-              />
+              <Select value={bcoPort || 'none'} onValueChange={(val) => setBcoPort(val === 'none' ? '' : val)}>
+                <SelectTrigger id="bcoPort">
+                  <SelectValue placeholder="Selecione o banco portador" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum (Novo / Margem Livre)</SelectItem>
+                  {bancos && bancos.filter(b => b.ativo).map((b) => (
+                    <SelectItem key={b.id} value={b.nome}>
+                      {b.nome}
+                    </SelectItem>
+                  ))}
+                  {(!bancos || bancos.length === 0) && (
+                    <>
+                      <SelectItem value="ITAÚ">ITAÚ</SelectItem>
+                      <SelectItem value="BANCO PAN">BANCO PAN</SelectItem>
+                      <SelectItem value="BMG">BMG</SelectItem>
+                      <SelectItem value="C6 BANK">C6 BANK</SelectItem>
+                      <SelectItem value="BRADESCO">BRADESCO</SelectItem>
+                      <SelectItem value="BANRISUL">BANRISUL</SelectItem>
+                      <SelectItem value="DAYCOVAL">DAYCOVAL</SelectItem>
+                      <SelectItem value="AGIBANK">AGIBANK</SelectItem>
+                      <SelectItem value="SAFRA">SAFRA</SelectItem>
+                      <SelectItem value="MERCANTIL">MERCANTIL</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Valores e Taxa */}

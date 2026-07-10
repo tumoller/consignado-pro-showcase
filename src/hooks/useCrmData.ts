@@ -29,6 +29,7 @@ export interface Contact {
   cpf_rep_legal: string | null;
   rua: string | null;
   numero: string | null;
+  complemento: string | null;
   bairro: string | null;
   cidade: string | null;
   uf: string | null;
@@ -315,6 +316,135 @@ export function useDeleteProposta(workspaceId: string | null) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['propostas', workspaceId] });
       qc.invalidateQueries({ queryKey: ['contact'] });
+    },
+  });
+}
+
+// ---------- Configurações (Bancos, Espécies, Convênios) ----------
+export interface BancoAtivo {
+  id: number;
+  nome: string;
+  ativo: boolean;
+  created_at: string;
+}
+
+export function useBancosAtivos() {
+  return useQuery({
+    queryKey: ['bancos_ativos'],
+    queryFn: async (): Promise<BancoAtivo[]> => {
+      const { data, error } = await supabase
+        .from('bancos_ativos')
+        .select('*')
+        .order('nome', { ascending: true });
+      if (error) throw error;
+      return data as BancoAtivo[];
+    },
+  });
+}
+
+export function useMutationBanco() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, nome, ativo, action }: { id?: number; nome?: string; ativo?: boolean; action: 'create' | 'update' | 'delete' }) => {
+      if (action === 'create') {
+        const { error } = await supabase.from('bancos_ativos').insert([{ nome, ativo: true }]);
+        if (error) throw error;
+      } else if (action === 'update') {
+        const { error } = await supabase.from('bancos_ativos').update({ nome, ativo }).eq('id', id);
+        if (error) throw error;
+      } else if (action === 'delete') {
+        const { error } = await supabase.from('bancos_ativos').delete().eq('id', id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bancos_ativos'] });
+    },
+  });
+}
+
+export interface EspecieAtiva {
+  id: number;
+  codigo: string;
+  descricao: string;
+  ativo: boolean;
+  created_at: string;
+}
+
+export function useEspeciesAtivas() {
+  return useQuery({
+    queryKey: ['especies_ativas'],
+    queryFn: async (): Promise<EspecieAtiva[]> => {
+      const { data, error } = await supabase
+        .from('especies_ativas')
+        .select('*')
+        .order('codigo', { ascending: true });
+      if (error) throw error;
+      return data as EspecieAtiva[];
+    },
+  });
+}
+
+export function useMutationEspecie() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, codigo, descricao, ativo, action }: { id?: number; codigo?: string; descricao?: string; ativo?: boolean; action: 'create' | 'update' | 'delete' }) => {
+      if (action === 'create') {
+        const { error } = await supabase.from('especies_ativas').insert([{ codigo, descricao, ativo: true }]);
+        if (error) throw error;
+      } else if (action === 'update') {
+        const { error } = await supabase.from('especies_ativas').update({ codigo, descricao, ativo }).eq('id', id);
+        if (error) throw error;
+      } else if (action === 'delete') {
+        const { error } = await supabase.from('especies_ativas').delete().eq('id', id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['especies_ativas'] });
+    },
+  });
+}
+
+export interface ConvenioAtivo {
+  id: number;
+  convenio: string;
+  ativo: boolean;
+  observacao: string | null;
+  created_at: string;
+}
+
+export function useConveniosAtivos() {
+  return useQuery({
+    queryKey: ['convenios_ativos'],
+    queryFn: async (): Promise<ConvenioAtivo[]> => {
+      const { data, error } = await supabase
+        .from('convenios_ativos')
+        .select('*')
+        .order('convenio', { ascending: true });
+      if (error) throw error;
+      return data as ConvenioAtivo[];
+    },
+  });
+}
+
+export function useMutationConvenio() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, convenio, ativo, observacao, action }: { id?: number; convenio?: string; ativo?: boolean; observacao?: string | null; action: 'create' | 'update' | 'delete' }) => {
+      if (action === 'create') {
+        const { error } = await supabase.from('convenios_ativos').insert([{ convenio, ativo: true, observacao }]);
+        if (error) throw error;
+      } else if (action === 'update') {
+        const { error } = await supabase.from('convenios_ativos').update({ convenio, ativo, observacao }).eq('id', id);
+        if (error) throw error;
+      } else if (action === 'delete') {
+        const { error } = await supabase.from('convenios_ativos').delete().eq('id', id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['convenios_ativos'] });
     },
   });
 }

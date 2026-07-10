@@ -7,7 +7,7 @@ import { Loader2 } from 'lucide-react';
 interface ProposalKanbanProps {
   propostas: Proposta[];
   isLoading: boolean;
-  onCardClick: (id: number) => void;
+  onCardClick: (p: Proposta) => void;
   onStatusChange: (id: number, newStatus: string) => void;
 }
 

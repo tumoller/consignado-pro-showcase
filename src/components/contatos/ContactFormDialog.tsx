@@ -26,6 +26,9 @@ import {
   Contact,
   useCreateContact,
   useUpdateContact,
+  useConveniosAtivos,
+  useBancosAtivos,
+  useEspeciesAtivas,
 } from '@/hooks/useCrmData';
 
 interface ContactFormDialogProps {
@@ -42,6 +45,11 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
   const { activeWorkspaceId } = useWorkspace();
   const createMutation = useCreateContact(activeWorkspaceId);
   const updateMutation = useUpdateContact(activeWorkspaceId);
+
+  // Queries para dados de configuração dinâmica
+  const { data: listConvenios } = useConveniosAtivos();
+  const { data: listBancos } = useBancosAtivos();
+  const { data: listEspecies } = useEspeciesAtivas();
 
   // Estados dos campos
   const [nome, setNome] = useState('');
@@ -67,6 +75,7 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
 
   const [rua, setRua] = useState('');
   const [numero, setNumero] = useState('');
+  const [complemento, setComplemento] = useState('');
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
   const [uf, setUf] = useState('');
@@ -100,6 +109,7 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
         setConta(contact.conta || '');
         setRua(contact.rua || '');
         setNumero(contact.numero || '');
+        setComplemento(contact.complemento || '');
         setBairro(contact.bairro || '');
         setCidade(contact.cidade || '');
         setUf(contact.uf || '');
@@ -129,6 +139,7 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
         setConta('');
         setRua('');
         setNumero('');
+        setComplemento('');
         setBairro('');
         setCidade('');
         setUf('');
@@ -176,13 +187,12 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
       nb_mat: nbMat || null,
       orgao_siape: orgaoSiape || null,
       recebimento_beneficio: recebimentoBeneficio || null,
-      nome_mae: nomeMae || null,
-      nome_pai: nomePai || null,
       banco: banco || null,
       agencia: agencia || null,
       conta: conta || null,
       rua: rua || null,
       numero: numero || null,
+      complemento: complemento || null,
       bairro: bairro || null,
       cidade: cidade || null,
       uf: uf || null,
@@ -190,9 +200,11 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
       lembrete_op: lembreteOp || null,
       contexto_conversa: contextoConversa || null,
       resumo_emprestimos: resumoEmprestimos || null,
-      nome_rep_legal: contact?.nome_rep_legal || null, // preserva se houver
+      nome_rep_legal: contact?.nome_rep_legal || null,
       cpf_rep_legal: contact?.cpf_rep_legal || null,
       data_nasc_rl: contact?.data_nasc_rl || null,
+      nome_mae: nomeMae || null,
+      nome_pai: nomePai || null,
     };
 
     if (contact) {
@@ -282,12 +294,26 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="convenio">Convênio</Label>
-                  <Input
-                    id="convenio"
-                    placeholder="Ex: INSS, SIAPE, FGTS"
-                    value={convenio}
-                    onChange={(e) => setConvenio(e.target.value)}
-                  />
+                  <Select value={convenio || ''} onValueChange={setConvenio}>
+                    <SelectTrigger id="convenio">
+                      <SelectValue placeholder="Selecione o convênio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {listConvenios && listConvenios.filter((c) => c.ativo).map((c) => (
+                        <SelectItem key={c.id} value={c.convenio}>
+                          {c.convenio}
+                        </SelectItem>
+                      ))}
+                      {(!listConvenios || listConvenios.length === 0) && (
+                        <>
+                          <SelectItem value="INSS">INSS</SelectItem>
+                          <SelectItem value="SIAPE">SIAPE</SelectItem>
+                          <SelectItem value="FGTS">FGTS</SelectItem>
+                          <SelectItem value="FORÇAS ARMADAS">FORÇAS ARMADAS</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="status">Status</Label>
@@ -347,12 +373,26 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="espBenef">Espécie de Benefício</Label>
-                  <Input
-                    id="espBenef"
-                    placeholder="Ex: 41 - Aposentadoria Idade"
-                    value={espBenef}
-                    onChange={(e) => setEspBenef(e.target.value)}
-                  />
+                  <Select value={espBenef || ''} onValueChange={setEspBenef}>
+                    <SelectTrigger id="espBenef">
+                      <SelectValue placeholder="Selecione a espécie" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {listEspecies && listEspecies.filter((e) => e.ativo).map((e) => (
+                        <SelectItem key={e.id} value={`${e.codigo} - ${e.descricao}`}>
+                          {e.codigo} - {e.descricao}
+                        </SelectItem>
+                      ))}
+                      {(!listEspecies || listEspecies.length === 0) && (
+                        <>
+                          <SelectItem value="41 - Aposentadoria por Idade">41 - Aposentadoria por Idade</SelectItem>
+                          <SelectItem value="21 - Pensão por Morte">21 - Pensão por Morte</SelectItem>
+                          <SelectItem value="32 - Aposentadoria por Invalidez">32 - Aposentadoria por Invalidez</SelectItem>
+                          <SelectItem value="88 - BPC LOAS">88 - BPC LOAS</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1 col-span-2">
                   <Label htmlFor="orgaoSiape">Órgão SIAPE (se aplicável)</Label>
@@ -389,12 +429,32 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <Label htmlFor="banco">Banco</Label>
-                  <Input
-                    id="banco"
-                    placeholder="Ex: ITAU"
-                    value={banco}
-                    onChange={(e) => setBanco(e.target.value)}
-                  />
+                  <Select value={banco || ''} onValueChange={setBanco}>
+                    <SelectTrigger id="banco">
+                      <SelectValue placeholder="Selecione o banco" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {listBancos && listBancos.filter((b) => b.ativo).map((b) => (
+                        <SelectItem key={b.id} value={b.nome}>
+                          {b.nome}
+                        </SelectItem>
+                      ))}
+                      {(!listBancos || listBancos.length === 0) && (
+                        <>
+                          <SelectItem value="ITAÚ">ITAÚ</SelectItem>
+                          <SelectItem value="BANCO PAN">BANCO PAN</SelectItem>
+                          <SelectItem value="BMG">BMG</SelectItem>
+                          <SelectItem value="C6 BANK">C6 BANK</SelectItem>
+                          <SelectItem value="BRADESCO">BRADESCO</SelectItem>
+                          <SelectItem value="BANRISUL">BANRISUL</SelectItem>
+                          <SelectItem value="DAYCOVAL">DAYCOVAL</SelectItem>
+                          <SelectItem value="AGIBANK">AGIBANK</SelectItem>
+                          <SelectItem value="SAFRA">SAFRA</SelectItem>
+                          <SelectItem value="MERCANTIL">MERCANTIL</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="agencia">Agência</Label>
@@ -447,7 +507,16 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
                     onChange={(e) => setNumero(e.target.value)}
                   />
                 </div>
-                <div className="space-y-1 col-span-2">
+                <div className="space-y-1 col-span-3">
+                  <Label htmlFor="complemento">Complemento</Label>
+                  <Input
+                    id="complemento"
+                    placeholder="Ex: Apto 42, Bloco B"
+                    value={complemento}
+                    onChange={(e) => setComplemento(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1 col-span-3">
                   <Label htmlFor="bairro">Bairro</Label>
                   <Input
                     id="bairro"
@@ -456,7 +525,7 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
                     onChange={(e) => setBairro(e.target.value)}
                   />
                 </div>
-                <div className="space-y-1 col-span-2">
+                <div className="space-y-1 col-span-3">
                   <Label htmlFor="cidade">Cidade</Label>
                   <Input
                     id="cidade"
@@ -475,7 +544,7 @@ export const ContactFormDialog: React.FC<ContactFormDialogProps> = ({
                     onChange={(e) => setUf(e.target.value.toUpperCase())}
                   />
                 </div>
-                <div className="space-y-1 col-span-1">
+                <div className="space-y-1 col-span-2">
                   <Label htmlFor="cep">CEP</Label>
                   <Input
                     id="cep"
