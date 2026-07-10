@@ -28,9 +28,8 @@ const navigationItems = [
   { name: 'Conversas', href: '/conversas', icon: MessageSquare },
   { name: 'Campanhas', href: '/campanhas', icon: Megaphone },
   { name: 'Automação', href: '/automacao', icon: Zap },
-  { name: 'Instâncias', href: '/instances', icon: Puzzle },
   { name: 'Templates', href: '/templates', icon: FileText },
-  { name: 'Integrações', href: '/integracoes', icon: Puzzle },
+  { name: 'WhatsApp', href: '/instances', icon: Puzzle },
   { name: 'Configurações', href: '/configuracoes', icon: Settings },
 ];
 

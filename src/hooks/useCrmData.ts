@@ -199,6 +199,126 @@ export function useConversations(workspaceId: string | null) {
   });
 }
 
+// ---------- Mutações CRUD de Contatos ----------
+export function useCreateContact(workspaceId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (contact: Omit<Contact, 'id' | 'created_at'>) => {
+      const { error } = await supabase
+        .from('contacts')
+        .insert({ ...contact, workspace_id: workspaceId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contacts', workspaceId] });
+    },
+  });
+}
+
+export function useUpdateContact(workspaceId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Contact> & { id: number }) => {
+      const { error } = await supabase
+        .from('contacts')
+        .update(updates)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['contacts', workspaceId] });
+      qc.invalidateQueries({ queryKey: ['contact', variables.id] });
+    },
+  });
+}
+
+// ---------- Mutações CRUD de Propostas ----------
+export function useCreateProposta(workspaceId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (proposta: Omit<Proposta, 'id' | 'created_at' | 'comissao'>) => {
+      const { error } = await supabase
+        .from('propostas')
+        .insert({ ...proposta, workspace_id: workspaceId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['propostas', workspaceId] });
+    },
+  });
+}
+
+export function useUpdateProposta(workspaceId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Proposta> & { id: number }) => {
+      const { comissao, contacts, ...cleanUpdates } = updates as any;
+      const { error } = await supabase
+        .from('propostas')
+        .update(cleanUpdates)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['propostas', workspaceId] });
+      if (variables.contact_id) {
+        qc.invalidateQueries({ queryKey: ['contact', variables.contact_id] });
+      }
+    },
+  });
+}
+
+export function useUpdatePropostaStatus(workspaceId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const { error } = await supabase
+        .from('propostas')
+        .update({ status })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, status }) => {
+      await qc.cancelQueries({ queryKey: ['propostas', workspaceId] });
+      const previousPropostas = qc.getQueryData<Proposta[]>(['propostas', workspaceId]);
+
+      if (previousPropostas) {
+        qc.setQueryData<Proposta[]>(
+          ['propostas', workspaceId],
+          previousPropostas.map((p) => (p.id === id ? { ...p, status } : p))
+        );
+      }
+      return { previousPropostas };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousPropostas) {
+        qc.setQueryData(['propostas', workspaceId], context.previousPropostas);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['propostas', workspaceId] });
+      qc.invalidateQueries({ queryKey: ['contact'] });
+    },
+  });
+}
+
+export function useDeleteProposta(workspaceId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase
+        .from('propostas')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['propostas', workspaceId] });
+      qc.invalidateQueries({ queryKey: ['contact'] });
+    },
+  });
+}
+
 // ---------- Helpers de formatação ----------
 export const fmtBRL = (v: number | null | undefined) =>
   v == null

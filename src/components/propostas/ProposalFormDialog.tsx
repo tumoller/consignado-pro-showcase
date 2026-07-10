@@ -1,0 +1,454 @@
+// src/components/propostas/ProposalFormDialog.tsx
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner';
+import { Search, Loader2 } from 'lucide-react';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import {
+  Proposta,
+  Contact,
+  useContacts,
+  useCreateProposta,
+  useUpdateProposta,
+} from '@/hooks/useCrmData';
+
+interface ProposalFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  proposta?: Proposta | null; // Se fornecido, modo de edição
+}
+
+export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
+  open,
+  onOpenChange,
+  proposta,
+}) => {
+  const { activeWorkspaceId } = useWorkspace();
+  const createMutation = useCreateProposta(activeWorkspaceId);
+  const updateMutation = useUpdateProposta(activeWorkspaceId);
+
+  // Estados do formulário
+  const [contactId, setContactId] = useState<number | null>(null);
+  const [searchContact, setSearchContact] = useState('');
+  const [showContactList, setShowContactList] = useState(false);
+  const [selectedContactName, setSelectedContactName] = useState('');
+
+  const [produto, setProduto] = useState('');
+  const [operacao, setOperacao] = useState('');
+  const [bcoOp, setBcoOp] = useState('');
+  const [bcoPort, setBcoPort] = useState('');
+  const [saldo, setSaldo] = useState('');
+  const [cmsPct, setCmsPct] = useState('');
+  const [parcela, setParcela] = useState('');
+  const [parcelaReduzida, setParcelaReduzida] = useState('');
+  const [qtdeParc, setQtdeParc] = useState('');
+  const [taxa, setTaxa] = useState('');
+  const [status, setStatus] = useState('Não iniciada');
+  const [subStatus, setSubStatus] = useState('');
+  const [numProposta, setNumProposta] = useState('');
+  const [numContrato, setNumContrato] = useState('');
+  const [dataCipAverb, setDataCipAverb] = useState('');
+  const [promotora, setPromotora] = useState('');
+
+  // Busca de contatos para o autocomplete
+  const { data: contacts, isLoading: loadingContacts } = useContacts(activeWorkspaceId, searchContact);
+
+  // Popula o formulário ao abrir no modo edição
+  useEffect(() => {
+    if (open) {
+      if (proposta) {
+        setContactId(proposta.contact_id);
+        setSelectedContactName(proposta.contacts?.nome || '');
+        setSearchContact(proposta.contacts?.nome || '');
+        setProduto(proposta.produto || '');
+        setOperacao(proposta.operacao || '');
+        setBcoOp(proposta.bco_op || '');
+        setBcoPort(proposta.bco_port || '');
+        setSaldo(proposta.saldo?.toString() || '');
+        setCmsPct(proposta.cms_pct?.toString() || '');
+        setParcela(proposta.parcela?.toString() || '');
+        setParcelaReduzida(proposta.parcela_reduzida?.toString() || '');
+        setQtdeParc(proposta.qtde_parc?.toString() || '');
+        setTaxa(proposta.taxa?.toString() || '');
+        setStatus(proposta.status || 'Não iniciada');
+        setSubStatus(proposta.sub_status || '');
+        setNumProposta(proposta.num_proposta || '');
+        setNumContrato(proposta.num_contrato || '');
+        setDataCipAverb(proposta.data_cip_averb || '');
+        setPromotora(proposta.promotora || '');
+      } else {
+        // Limpa campos para novo cadastro
+        setContactId(null);
+        setSelectedContactName('');
+        setSearchContact('');
+        setProduto('');
+        setOperacao('');
+        setBcoOp('');
+        setBcoPort('');
+        setSaldo('');
+        setCmsPct('');
+        setParcela('');
+        setParcelaReduzida('');
+        setQtdeParc('');
+        setTaxa('');
+        setStatus('Não iniciada');
+        setSubStatus('');
+        setNumProposta('');
+        setNumContrato('');
+        setDataCipAverb('');
+        setPromotora('');
+      }
+    }
+  }, [open, proposta]);
+
+  // Comissão estimada calculada em tempo real (read-only)
+  const estimatedCommission = useMemo(() => {
+    const valSaldo = parseFloat(saldo);
+    const pctCms = parseFloat(cmsPct);
+    if (isNaN(valSaldo) || isNaN(pctCms)) return 0;
+    return Math.round((valSaldo * pctCms) / 100 * 100) / 100;
+  }, [saldo, cmsPct]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!contactId) {
+      toast.error('Por favor, selecione um cliente da lista.');
+      return;
+    }
+
+    const payload = {
+      contact_id: contactId,
+      produto: produto || null,
+      operacao: operacao || null,
+      bco_op: bcoOp || null,
+      bco_port: bcoPort || null,
+      saldo: saldo ? parseFloat(saldo) : null,
+      cms_pct: cmsPct ? parseFloat(cmsPct) : null,
+      parcela: parcela ? parseFloat(parcela) : null,
+      parcela_reduzida: parcelaReduzida ? parseFloat(parcelaReduzida) : null,
+      qtde_parc: qtdeParc ? parseInt(qtdeParc, 10) : null,
+      taxa: taxa ? parseFloat(taxa) : null,
+      status: status || 'Não iniciada',
+      sub_status: subStatus || null,
+      num_proposta: numProposta || null,
+      num_contrato: numContrato || null,
+      data_cip_averb: dataCipAverb || null,
+      promotora: promotora || null,
+    };
+
+    if (proposta) {
+      updateMutation.mutate(
+        { id: proposta.id, ...payload },
+        {
+          onSuccess: () => {
+            toast.success('Proposta atualizada com sucesso!');
+            onOpenChange(false);
+          },
+          onError: (err: any) => {
+            toast.error(`Erro ao atualizar proposta: ${err.message}`);
+          },
+        }
+      );
+    } else {
+      createMutation.mutate(payload, {
+        onSuccess: () => {
+          toast.success('Proposta criada com sucesso!');
+          onOpenChange(false);
+        },
+        onError: (err: any) => {
+          toast.error(`Erro ao criar proposta: ${err.message}`);
+        },
+      });
+    }
+  };
+
+  const selectContact = (c: Contact) => {
+    setContactId(c.id);
+    setSelectedContactName(c.nome || '');
+    setSearchContact(c.nome || '');
+    setShowContactList(false);
+  };
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{proposta ? 'Editar Proposta' : 'Nova Proposta'}</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          {/* Campo de Cliente - Autocomplete */}
+          <div className="relative space-y-1">
+            <Label htmlFor="cliente-search">Cliente (Buscar por Nome/CPF/Telefone)</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="cliente-search"
+                placeholder={selectedContactName ? `Selecionado: ${selectedContactName}` : "Pesquise para selecionar o cliente..."}
+                value={searchContact}
+                className="pl-9"
+                onChange={(e) => {
+                  setSearchContact(e.target.value);
+                  setShowContactList(true);
+                  if (contactId) {
+                    setContactId(null);
+                    setSelectedContactName('');
+                  }
+                }}
+                onFocus={() => setShowContactList(true)}
+              />
+            </div>
+            {showContactList && searchContact.trim().length > 0 && (
+              <div className="absolute z-50 w-full bg-popover text-popover-foreground border rounded-md shadow-lg max-h-48 overflow-y-auto mt-1">
+                {loadingContacts ? (
+                  <div className="p-4 text-sm text-center text-muted-foreground flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Carregando clientes...
+                  </div>
+                ) : !contacts || contacts.length === 0 ? (
+                  <div className="p-4 text-sm text-center text-muted-foreground">
+                    Nenhum cliente encontrado
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {contacts.map((c) => (
+                      <li
+                        key={c.id}
+                        onClick={() => selectContact(c)}
+                        className="p-3 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer flex flex-col"
+                      >
+                        <span className="font-medium">{c.nome}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          CPF: {c.cpf || '—'} | Telefone: {c.phone_number || '—'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Produto e Operação */}
+            <div className="space-y-1">
+              <Label htmlFor="produto">Produto</Label>
+              <Input
+                id="produto"
+                placeholder="Ex: Portabilidade, Margem Livre"
+                value={produto}
+                onChange={(e) => setProduto(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="operacao">Operação</Label>
+              <Input
+                id="operacao"
+                placeholder="Ex: NOVO, PORT, REFIN"
+                value={operacao}
+                onChange={(e) => setOperacao(e.target.value)}
+              />
+            </div>
+
+            {/* Bancos */}
+            <div className="space-y-1">
+              <Label htmlFor="bcoOp">Banco Operador</Label>
+              <Input
+                id="bcoOp"
+                placeholder="Ex: PAN, BMG, C6"
+                value={bcoOp}
+                onChange={(e) => setBcoOp(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="bcoPort">Banco Portador (se Portabilidade)</Label>
+              <Input
+                id="bcoPort"
+                placeholder="Ex: ITAU, BRADESCO"
+                value={bcoPort}
+                onChange={(e) => setBcoPort(e.target.value)}
+              />
+            </div>
+
+            {/* Valores e Taxa */}
+            <div className="space-y-1">
+              <Label htmlFor="saldo">Valor da Operação (Saldo)</Label>
+              <Input
+                id="saldo"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={saldo}
+                onChange={(e) => setSaldo(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="cmsPct">Comissão %</Label>
+              <Input
+                id="cmsPct"
+                type="number"
+                step="0.01"
+                placeholder="Ex: 5.5"
+                value={cmsPct}
+                onChange={(e) => setCmsPct(e.target.value)}
+              />
+            </div>
+
+            {/* Parcelas */}
+            <div className="space-y-1">
+              <Label htmlFor="parcela">Valor da Parcela</Label>
+              <Input
+                id="parcela"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={parcela}
+                onChange={(e) => setParcela(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="parcelaReduzida">Parcela Reduzida</Label>
+              <Input
+                id="parcelaReduzida"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={parcelaReduzida}
+                onChange={(e) => setParcelaReduzida(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="qtdeParc">Quantidade de Parcelas</Label>
+              <Input
+                id="qtdeParc"
+                type="number"
+                placeholder="Ex: 84"
+                value={qtdeParc}
+                onChange={(e) => setQtdeParc(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="taxa">Taxa de Juros %</Label>
+              <Input
+                id="taxa"
+                type="number"
+                step="0.0001"
+                placeholder="Ex: 1.35"
+                value={taxa}
+                onChange={(e) => setTaxa(e.target.value)}
+              />
+            </div>
+
+            {/* Status e Sub-status */}
+            <div className="space-y-1">
+              <Label htmlFor="status">Status da Proposta</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Não iniciada">Não Iniciada</SelectItem>
+                  <SelectItem value="Digitada">Digitada</SelectItem>
+                  <SelectItem value="REDIGITAR">REDIGITAR (Pendência)</SelectItem>
+                  <SelectItem value="Aprovada">Aprovada</SelectItem>
+                  <SelectItem value="Paga">Paga</SelectItem>
+                  <SelectItem value="Cancelada">Cancelada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="subStatus">Sub-status</Label>
+              <Input
+                id="subStatus"
+                placeholder="Ex: Aguardando averbação órgão"
+                value={subStatus}
+                onChange={(e) => setSubStatus(e.target.value)}
+              />
+            </div>
+
+            {/* Identificadores e Promotora */}
+            <div className="space-y-1">
+              <Label htmlFor="numProposta">Nº da Proposta (Banco)</Label>
+              <Input
+                id="numProposta"
+                placeholder="Ex: 80948512"
+                value={numProposta}
+                onChange={(e) => setNumProposta(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="numContrato">Nº do Contrato</Label>
+              <Input
+                id="numContrato"
+                placeholder="Ex: 928374827"
+                value={numContrato}
+                onChange={(e) => setNumContrato(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="dataCipAverb">Data de Averbamento (CIP)</Label>
+              <Input
+                id="dataCipAverb"
+                type="date"
+                value={dataCipAverb}
+                onChange={(e) => setDataCipAverb(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="promotora">Promotora</Label>
+              <Input
+                id="promotora"
+                placeholder="Ex: GLM, LEV"
+                value={promotora}
+                onChange={(e) => setPromotora(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Somatório de comissão prevista informativa */}
+          <div className="bg-success/5 border border-success/20 rounded-lg p-3 flex items-center justify-between text-sm mt-2">
+            <span className="text-muted-foreground font-medium">Estimativa de Comissão:</span>
+            <span className="font-bold text-success text-base">
+              {estimatedCommission > 0 ? `R$ ${estimatedCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+            </span>
+          </div>
+
+          <DialogFooter className="pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isPending}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {proposta ? 'Salvar Alterações' : 'Criar Proposta'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};

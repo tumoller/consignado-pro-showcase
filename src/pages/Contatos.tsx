@@ -23,6 +23,9 @@ import {
   fmtDate,
   fmtPhone,
 } from '@/hooks/useCrmData';
+import { Button } from '@/components/ui/button';
+import { PlusCircle, Pencil } from 'lucide-react';
+import { ContactFormDialog } from '@/components/contatos/ContactFormDialog';
 
 const isPaga = (s: string | null | undefined) => (s ?? '').toLowerCase().startsWith('pag');
 
@@ -47,6 +50,8 @@ const ContactSheet = ({
     .filter((p) => isPaga(p.status))
     .reduce((acc, p) => acc + (Number(p.comissao) || 0), 0);
 
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
   return (
     <Sheet open={!!contactId} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
@@ -65,9 +70,15 @@ const ContactSheet = ({
         ) : (
           <>
             <SheetHeader className="text-left">
-              <SheetTitle className="text-xl">{c.nome || 'Sem nome'}</SheetTitle>
+              <div className="flex items-center justify-between pr-6">
+                <SheetTitle className="text-xl">{c.nome || 'Sem nome'}</SheetTitle>
+                <Button size="sm" variant="outline" onClick={() => setIsEditOpen(true)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+                </Button>
+              </div>
               <SheetDescription className="sr-only">Ficha completa do cliente</SheetDescription>
             </SheetHeader>
+            <ContactFormDialog open={isEditOpen} onOpenChange={setIsEditOpen} contact={c} />
             <div className="flex flex-wrap gap-2 items-center mt-1">
               {c.status && <Badge variant="secondary">{c.status}</Badge>}
               {c.qualificacao && <Badge variant="outline">{c.qualificacao}</Badge>}
@@ -225,15 +236,21 @@ const Contatos = () => {
   const { activeWorkspaceId } = useWorkspace();
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const contacts = useContacts(activeWorkspaceId, search);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Contatos</h1>
-        <p className="text-muted-foreground mt-1">
-          {contacts.data ? `${contacts.data.length} contatos` : 'Sua base de clientes e leads'}
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Contatos</h1>
+          <p className="text-muted-foreground mt-1">
+            {contacts.data ? `${contacts.data.length} contatos` : 'Sua base de clientes e leads'}
+          </p>
+        </div>
+        <Button onClick={() => setIsCreateOpen(true)}>
+          <PlusCircle className="h-4 w-4 mr-2" /> Novo Contato
+        </Button>
       </div>
 
       <div className="relative max-w-md">
@@ -245,6 +262,7 @@ const Contatos = () => {
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
+      <ContactFormDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
 
       <Card>
         <CardContent className="p-0">
