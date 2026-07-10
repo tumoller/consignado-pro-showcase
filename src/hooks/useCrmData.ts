@@ -38,6 +38,7 @@ export interface Contact {
   contexto_conversa: string | null;
   resumo_emprestimos: string | null;
   created_at: string;
+  updated_at: string | null;
 }
 
 export interface Proposta {
@@ -61,6 +62,7 @@ export interface Proposta {
   data_cip_averb: string | null;
   promotora: string | null;
   created_at: string;
+  updated_at: string | null;
   contacts?: { nome: string | null; cpf: string | null } | null;
 }
 

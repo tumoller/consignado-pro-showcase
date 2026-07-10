@@ -63,6 +63,10 @@ export default {
 					foreground: 'hsl(var(--card-foreground) / <alpha-value>)',
 					border: 'hsl(var(--card-border) / <alpha-value>)'
 				},
+				popover: {
+					DEFAULT: 'hsl(var(--card) / <alpha-value>)',
+					foreground: 'hsl(var(--card-foreground) / <alpha-value>)'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background) / <alpha-value>)',
 					foreground: 'hsl(var(--sidebar-foreground) / <alpha-value>)',

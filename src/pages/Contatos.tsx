@@ -123,6 +123,9 @@ const ContactSheet = ({
               )}
               {c.qualificacao && <Badge variant="outline">{c.qualificacao}</Badge>}
               {c.convenio && <Badge className="bg-primary/20 text-primary border-primary/20">{c.convenio}</Badge>}
+              <span className="text-[10px] text-muted-foreground ml-auto">
+                Atualizado: {fmtDate(c.updated_at || c.created_at)}
+              </span>
             </div>
 
             <Tabs defaultValue="dados" className="mt-6">

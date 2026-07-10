@@ -202,7 +202,15 @@ const Propostas = () => {
                   <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                     <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={10}
+                      tickLine={false}
+                      tickFormatter={(v) => {
+                        if (v >= 1000) return `R$ ${(v / 1000).toFixed(0)}k`;
+                        return `R$ ${v}`;
+                      }}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
@@ -210,6 +218,7 @@ const Propostas = () => {
                         borderRadius: '6px',
                       }}
                       itemStyle={{ fontSize: '12px' }}
+                      formatter={(value: any) => [fmtBRL(value)]}
                     />
                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
                     <Bar dataKey="Volume (R$)" fill="#6366f1" radius={[4, 4, 0, 0]} />
