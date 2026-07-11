@@ -339,6 +339,26 @@ const CAMPOS_CONTATO_PERMITIDOS = [
 ];
 
 // ---------------------------------------------------------------------------
+// Personas legadas do n8n pedem saída JSON tipo [{"response":"..."}] ou {"response":"..."}.
+// Extrai o texto humano se o modelo devolver nesse formato; caso contrário retorna o texto original.
+function extrairRespostaHumana(texto: string): string {
+  const t = (texto ?? "").trim();
+  if (!t.startsWith("[") && !t.startsWith("{")) return t;
+  try {
+    const parsed = JSON.parse(t);
+    const obj = Array.isArray(parsed) ? parsed[0] : parsed;
+    if (obj && typeof obj === "object") {
+      const r = (obj as Record<string, unknown>).response ??
+        (obj as Record<string, unknown>).resposta ??
+        (obj as Record<string, unknown>).message;
+      if (typeof r === "string" && r.trim()) return r.trim();
+    }
+  } catch (_) {
+    // não é JSON válido — segue com o texto original
+  }
+  return t;
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -769,6 +789,10 @@ Deno.serve(async (req) => {
         break;
       }
     }
+
+    // Blindagem: personas legadas (n8n) instruem saída JSON tipo [{"response":"..."}].
+    // Se o texto final for JSON nesse formato, extrai só o conteúdo humano.
+    textoFinal = extrairRespostaHumana(textoFinal);
 
     if (!textoFinal) {
       textoFinal = `${assinatura}\nMe dá um instante que já te respondo. 🙏`;
