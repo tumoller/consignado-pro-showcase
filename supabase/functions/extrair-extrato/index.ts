@@ -540,6 +540,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const valorTotalDisponivel =
+        (simulacao?.valor_total_disponivel as number | undefined) ??
         (simulacao?.emprestimo_novo as { valor_liberado?: number })?.valor_liberado ?? 0;
 
       await inserirTimelineEvent({
