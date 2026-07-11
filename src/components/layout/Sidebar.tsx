@@ -13,7 +13,8 @@ import {
   X,
   CreditCard,
   Wallet,
-  AlarmClock
+  AlarmClock,
+  Bot
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
@@ -26,6 +27,7 @@ const navigationItems = [
   { name: 'Propostas', href: '/propostas', icon: Wallet },
   { name: 'Follow-ups', href: '/followups', icon: AlarmClock },
   { name: 'Conversas', href: '/conversas', icon: MessageSquare },
+  { name: 'Agente IA', href: '/agente', icon: Bot },
   { name: 'Campanhas', href: '/campanhas', icon: Megaphone },
   { name: 'Automação', href: '/automacao', icon: Zap },
   { name: 'Templates', href: '/templates', icon: FileText },
@@ -66,11 +68,11 @@ const AccountStatusCard = () => {
         </div>
         {loading ? (
           <div className="space-y-2 animate-pulse">
-            <div className="h-3 bg-gray-500/30 rounded w-3/4"></div>
-            <div className="h-3 bg-gray-500/30 rounded w-1/2"></div>
+            <div className="h-3 bg-muted-foreground/20 rounded w-3/4"></div>
+            <div className="h-3 bg-muted-foreground/20 rounded w-1/2"></div>
           </div>
         ) : error ? (
-          <p className="text-xs text-red-400">Erro ao carregar plano.</p>
+          <p className="text-xs text-destructive">Erro ao carregar plano.</p>
         ) : (
           <>
             <p className="text-xs mt-2">

@@ -27,6 +27,8 @@ import {
   fmtDateTime,
   chatMessageText,
 } from '@/hooks/useCrmData';
+import { HojePanel } from '@/components/dashboard/HojePanel';
+import { MetaWidget } from '@/components/dashboard/MetaWidget';
 
 const isPaga = (s: string | null | undefined) => (s ?? '').toLowerCase().startsWith('pag');
 
@@ -97,6 +99,12 @@ const Index = () => {
           Sua operação de consignado em números reais
         </p>
       </div>
+
+      {/* Hoje — fila de trabalho */}
+      <HojePanel />
+
+      {/* Meta do mês */}
+      <MetaWidget />
 
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

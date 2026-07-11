@@ -5,6 +5,8 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export function LoginPage() {
   const [isLoginView, setIsLoginView] = useState(true);
@@ -65,10 +67,22 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>{isLoginView ? 'Login' : 'Criar Conta'}</CardTitle>
+    <div className="relative flex items-center justify-center min-h-screen bg-background overflow-hidden">
+      {/* Subtle radial detail */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at 50% 0%, hsl(var(--primary) / 0.08), transparent 60%)',
+        }}
+      />
+
+      <Card className="relative w-full max-w-sm bg-card shadow-lg border-border">
+        <CardHeader className="text-center space-y-1">
+          <div className="mx-auto mb-2 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+            <span className="text-lg font-bold text-primary">CP</span>
+          </div>
+          <CardTitle className="text-2xl font-bold text-foreground">Consignado Pro</CardTitle>
           <CardDescription>
             {isLoginView
               ? 'Entre com suas credenciais para acessar o painel.'
@@ -124,8 +138,18 @@ export function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            {message && <p className="text-green-500 text-sm">{message}</p>}
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {message && (
+              <Alert className="border-primary/30 bg-primary/5 text-foreground">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button className="w-full" type="submit" disabled={loading}>

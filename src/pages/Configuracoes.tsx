@@ -9,32 +9,30 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
-  useBancosAtivos,
-  useMutationBanco,
   useEspeciesAtivas,
   useMutationEspecie,
   useConveniosAtivos,
   useMutationConvenio,
 } from '@/hooks/useCrmData';
+import BancosSection from '@/components/configuracoes/BancosSection';
+import PromotorasSection from '@/components/configuracoes/PromotorasSection';
+import UsuariosBancoSection from '@/components/configuracoes/UsuariosBancoSection';
+import ParametrosBancoSection from '@/components/configuracoes/ParametrosBancoSection';
 
 const Configuracoes = () => {
   // Estados para inclusão
   const [newConvenio, setNewConvenio] = useState('');
   const [newConvenioObs, setNewConvenioObs] = useState('');
   
-  const [newBanco, setNewBanco] = useState('');
-  
   const [newEspecieCodigo, setNewEspecieCodigo] = useState('');
   const [newEspecieDescricao, setNewEspecieDescricao] = useState('');
 
   // Queries
   const convenios = useConveniosAtivos();
-  const bancos = useBancosAtivos();
   const especies = useEspeciesAtivas();
 
   // Mutations
   const mutateConvenio = useMutationConvenio();
-  const mutateBanco = useMutationBanco();
   const mutateEspecie = useMutationEspecie();
 
   // Handlers para Convênios
@@ -82,55 +80,6 @@ const Configuracoes = () => {
         },
         onError: (err: any) => {
           toast.error(`Erro ao remover convênio: ${err.message}`);
-        },
-      }
-    );
-  };
-
-  // Handlers para Bancos
-  const handleAddBanco = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newBanco.trim()) return;
-    
-    mutateBanco.mutate(
-      { nome: newBanco.toUpperCase().trim(), action: 'create' },
-      {
-        onSuccess: () => {
-          toast.success('Banco parceiro cadastrado com sucesso!');
-          setNewBanco('');
-        },
-        onError: (err: any) => {
-          toast.error(`Erro ao cadastrar banco: ${err.message}`);
-        },
-      }
-    );
-  };
-
-  const handleToggleBanco = (id: number, val: boolean, name: string) => {
-    mutateBanco.mutate(
-      { id, ativo: val, action: 'update' },
-      {
-        onSuccess: () => {
-          toast.success(`Banco "${name}" ${val ? 'ativado' : 'desativado'} com sucesso.`);
-        },
-        onError: (err: any) => {
-          toast.error(`Erro ao atualizar banco: ${err.message}`);
-        },
-      }
-    );
-  };
-
-  const handleDeleteBanco = (id: number, name: string) => {
-    if (!confirm(`Tem certeza de que deseja excluir permanentemente o banco "${name}"?`)) return;
-    
-    mutateBanco.mutate(
-      { id, action: 'delete' },
-      {
-        onSuccess: () => {
-          toast.success('Banco removido com sucesso!');
-        },
-        onError: (err: any) => {
-          toast.error(`Erro ao remover banco: ${err.message}`);
         },
       }
     );
@@ -186,7 +135,7 @@ const Configuracoes = () => {
     );
   };
 
-  const isMutating = mutateConvenio.isPending || mutateBanco.isPending || mutateEspecie.isPending;
+  const isMutating = mutateConvenio.isPending || mutateEspecie.isPending;
 
   return (
     <div className="space-y-6">
@@ -203,10 +152,13 @@ const Configuracoes = () => {
       </div>
 
       <Tabs defaultValue="convenios" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
+        <TabsList className="flex flex-wrap h-auto gap-1 w-full max-w-3xl">
           <TabsTrigger value="convenios">Convênios</TabsTrigger>
           <TabsTrigger value="bancos">Bancos</TabsTrigger>
           <TabsTrigger value="especies">Espécies INSS</TabsTrigger>
+          <TabsTrigger value="promotoras">Promotoras</TabsTrigger>
+          <TabsTrigger value="usuarios-banco">Usuários de Banco</TabsTrigger>
+          <TabsTrigger value="parametros">Parâmetros por Banco</TabsTrigger>
         </TabsList>
 
         {/* TAB 1: CONVÊNIOS */}
@@ -298,77 +250,7 @@ const Configuracoes = () => {
 
         {/* TAB 2: BANCOS */}
         <TabsContent value="bancos" className="space-y-4 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Form de Inclusão */}
-            <Card className="md:col-span-1 h-fit">
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold">Novo Banco Parceiro</CardTitle>
-                <CardDescription>Cadastre um novo banco parceiro comercial</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleAddBanco} className="space-y-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="bank-name">Nome do Banco</Label>
-                    <Input
-                      id="bank-name"
-                      placeholder="Ex: BANCO C6, OLE, ITAÚ"
-                      value={newBanco}
-                      onChange={(e) => setNewBanco(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full mt-2" disabled={isMutating}>
-                    {isMutating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                    Cadastrar Banco
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            {/* Listagem */}
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold">Bancos Cadastrados</CardTitle>
-                <CardDescription>Gerencie quais bancos estão disponíveis para seleção</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                {bancos.isLoading ? (
-                  <div className="p-6 text-center text-muted-foreground flex items-center justify-center gap-2">
-                    <Loader2 className="h-5 w-5 animate-spin" /> Carregando...
-                  </div>
-                ) : !bancos.data || bancos.data.length === 0 ? (
-                  <div className="p-6 text-center text-muted-foreground">Nenhum banco cadastrado.</div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {bancos.data.map((b) => (
-                      <div key={b.id} className="p-4 flex items-center justify-between text-sm">
-                        <div className="font-semibold text-foreground">{b.nome}</div>
-                        <div className="flex items-center gap-4 select-none">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">{b.ativo ? 'Ativo' : 'Inativo'}</span>
-                            <Switch
-                              checked={b.ativo}
-                              onCheckedChange={(val) => handleToggleBanco(b.id, val, b.nome)}
-                              disabled={isMutating}
-                            />
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteBanco(b.id, b.nome)}
-                            disabled={isMutating}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          <BancosSection />
         </TabsContent>
 
         {/* TAB 3: ESPÉCIES */}
@@ -460,6 +342,21 @@ const Configuracoes = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* TAB 4: PROMOTORAS */}
+        <TabsContent value="promotoras" className="space-y-4 pt-4">
+          <PromotorasSection />
+        </TabsContent>
+
+        {/* TAB 5: USUÁRIOS DE BANCO */}
+        <TabsContent value="usuarios-banco" className="space-y-4 pt-4">
+          <UsuariosBancoSection />
+        </TabsContent>
+
+        {/* TAB 6: PARÂMETROS POR BANCO */}
+        <TabsContent value="parametros" className="space-y-4 pt-4">
+          <ParametrosBancoSection />
         </TabsContent>
       </Tabs>
     </div>

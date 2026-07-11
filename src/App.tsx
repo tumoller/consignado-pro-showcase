@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import Instances from "./pages/Instances";
 import Contatos from "./pages/Contatos";
 import Conversas from "./pages/Conversas";
+import AgenteIA from "./pages/AgenteIA";
 import Propostas from "./pages/Propostas";
 import FollowUps from "./pages/FollowUps";
 import Campanhas from "./pages/Campanhas";
@@ -57,6 +58,7 @@ const AppRoutes = () => {
               <Route path="/propostas" element={<Propostas />} />
               <Route path="/followups" element={<FollowUps />} />
               <Route path="/conversas" element={<Conversas />} />
+              <Route path="/agente" element={<AgenteIA />} />
               <Route path="/campanhas" element={<Campanhas />} />
               <Route path="/automacao" element={<Automacao />} />
               <Route path="/templates" element={<Templates />} />

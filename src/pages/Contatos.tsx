@@ -12,6 +12,15 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
+  History,
+  MessageSquare,
+  Send,
+  Calculator,
+  AlarmClock,
+  StickyNote,
+  Wallet,
+  AlertTriangle,
+  Clock,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,6 +47,7 @@ import {
 } from '@/hooks/useCrmData';
 import { Button } from '@/components/ui/button';
 import { ContactFormDialog } from '@/components/contatos/ContactFormDialog';
+import { useContactTimeline, TimelineItem } from '@/hooks/useHojeData';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import {
@@ -69,6 +79,114 @@ const calculateAge = (birthDateString: string | null | undefined) => {
     age--;
   }
   return ` (${age} anos)`;
+};
+
+const TIPO_ICONS: Record<string, React.ElementType> = {
+  msg_in: MessageSquare,
+  msg_out: Send,
+  simulacao: Calculator,
+  followup: AlarmClock,
+  nota: StickyNote,
+  proposta_status: Wallet,
+  erro_agente: AlertTriangle,
+};
+
+const TIPO_LABELS: Record<string, string> = {
+  msg_in: 'Mensagem recebida',
+  msg_out: 'Mensagem enviada',
+  simulacao: 'Simulação',
+  followup: 'Follow-up',
+  nota: 'Nota',
+  proposta_status: 'Status da proposta',
+  erro_agente: 'Erro do agente',
+};
+
+const actorLabel = (actor: string | null) => {
+  if (!actor) return null;
+  if (actor === 'aurus') return 'IA';
+  if (actor === 'system') return 'Sistema';
+  if (actor.startsWith('user:')) return 'Você';
+  return actor;
+};
+
+const timelineTimeAgo = (iso: string) => {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return 'agora';
+  if (min < 60) return `há ${min}min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `há ${d}d`;
+  return fmtDate(iso);
+};
+
+const timelinePayloadSummary = (item: TimelineItem): string | null => {
+  if (item.tipo === 'simulacao' && item.payload) {
+    const valor = item.payload.valor_total_disponivel;
+    if (valor != null) return `Disponível: ${fmtBRL(Number(valor))}`;
+  }
+  if (item.payload && typeof item.payload === 'object') {
+    if (typeof item.payload.resumo === 'string') return item.payload.resumo;
+    if (typeof item.payload.mensagem === 'string') return item.payload.mensagem;
+  }
+  return null;
+};
+
+const ContactTimelineTab = ({ contactId }: { contactId: number | null }) => {
+  const timeline = useContactTimeline(contactId);
+  const items = timeline.data ?? [];
+
+  if (timeline.isLoading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-14 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return <p className="text-sm text-muted-foreground">Sem eventos ainda.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((item) => {
+        const Icon = TIPO_ICONS[item.tipo] || Clock;
+        const titulo = item.titulo || TIPO_LABELS[item.tipo] || item.tipo;
+        const resumo = timelinePayloadSummary(item);
+        const actor = actorLabel(item.actor);
+        return (
+          <div key={item.id} className="flex gap-3 rounded-lg border p-3">
+            <div className="shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <Icon className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-foreground truncate">{titulo}</span>
+                {actor && (
+                  <Badge variant="outline" className="text-[10px] shrink-0">
+                    {actor}
+                  </Badge>
+                )}
+              </div>
+              {resumo && (
+                <p className="text-xs text-muted-foreground mt-0.5 break-words">{resumo}</p>
+              )}
+              <span
+                className="text-[10px] text-muted-foreground mt-1 block"
+                title={fmtDate(item.created_at)}
+              >
+                {timelineTimeAgo(item.created_at)}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 const ContactSheet = ({
@@ -129,12 +247,15 @@ const ContactSheet = ({
             </div>
 
             <Tabs defaultValue="dados" className="mt-6">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="dados">Dados</TabsTrigger>
                 <TabsTrigger value="propostas">
                   Propostas ({propostas.length})
                 </TabsTrigger>
                 <TabsTrigger value="notas">Notas</TabsTrigger>
+                <TabsTrigger value="timeline">
+                  <History className="h-3.5 w-3.5 mr-1" /> Timeline
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="dados" className="space-y-5 mt-4">
@@ -265,6 +386,10 @@ const ContactSheet = ({
                     {c.contexto_conversa || 'Sem histórico.'}
                   </p>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="timeline" className="mt-4">
+                <ContactTimelineTab contactId={contactId} />
               </TabsContent>
             </Tabs>
           </>

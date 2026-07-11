@@ -105,7 +105,10 @@ export default function Instances() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Instâncias</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Instâncias</h1>
+          <p className="text-muted-foreground mt-1">Gerencie suas conexões de WhatsApp</p>
+        </div>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button><PlusCircle className="mr-2 h-4 w-4" /> Nova Instância</Button>
@@ -125,7 +128,7 @@ export default function Instances() {
                 value={newInstanceName}
                 onChange={(e) => setNewInstanceName(e.target.value)}
               />
-              {modalError && <p className="text-sm text-red-500">{modalError}</p>}
+              {modalError && <p className="text-sm text-destructive">{modalError}</p>}
             </div>
             <DialogFooter>
               <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
