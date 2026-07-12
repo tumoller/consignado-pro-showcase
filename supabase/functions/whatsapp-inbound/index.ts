@@ -3,10 +3,13 @@
 // Env vars necessárias (verify_jwt = false; validação por ?token=):
 //   SUPABASE_URL                 (injetada automaticamente)
 //   SUPABASE_SERVICE_ROLE_KEY    (injetada automaticamente)
-//   ANTHROPIC_API_KEY            chave da API Anthropic
+//   ANTHROPIC_API_KEY            chave da API Anthropic (provider "anthropic")
+//   GEMINI_API_KEY                chave da API Gemini (provider "gemini")
 //   WUZAPI_BASE_URL              base da API wuzapi
 //   WEBHOOK_SECRET               segredo validado contra ?token= da query string
 //   DEFAULT_WORKSPACE_ID         workspace fallback (default 1)
+//
+// config_agente.provider decide o motor ("anthropic" ou "gemini"); default "anthropic".
 //
 // Configure o webhook do wuzapi apontando para:
 //   POST ${SUPABASE_URL}/functions/v1/whatsapp-inbound?token=${WEBHOOK_SECRET}
@@ -17,6 +20,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash";
 const WUZAPI_BASE_URL = (Deno.env.get("WUZAPI_BASE_URL") ?? "").replace(/\/+$/, "");
 const WEBHOOK_SECRET = Deno.env.get("WEBHOOK_SECRET") ?? "";
 const DEFAULT_WORKSPACE_ID = Number(Deno.env.get("DEFAULT_WORKSPACE_ID") ?? "1");
@@ -717,80 +722,189 @@ Deno.serve(async (req) => {
       }
     }
 
-    const modelo = config.modelo ?? "claude-sonnet-5";
+    const provider = (config.provider ?? "anthropic").toLowerCase();
+    const modelo = provider === "gemini"
+      ? (/^gemini/i.test(config.modelo ?? "") ? config.modelo : GEMINI_DEFAULT_MODEL)
+      : (config.modelo ?? "claude-sonnet-5");
 
     // --- Loop de tool-use (máx 5 iterações) ---
     let textoFinal = "";
     let usageTotal: any = null;
     let escalou = false;
 
-    for (let iter = 0; iter < 5; iter++) {
-      const anthResp = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: modelo,
-          max_tokens: 1024,
-          system: systemPrompt,
-          tools: TOOLS,
-          messages,
-        }),
-      });
+    if (provider === "gemini") {
+      // Ferramentas no formato Gemini (functionDeclarations); input_schema já é
+      // compatível com o subconjunto OpenAPI que a API do Gemini espera.
+      const geminiTools = [{
+        functionDeclarations: TOOLS.map((t) => ({
+          name: t.name,
+          description: t.description,
+          parameters: t.input_schema,
+        })),
+      }];
 
-      if (!anthResp.ok) {
-        const detalhe = await anthResp.text().catch(() => "");
-        throw new Error(`anthropic ${anthResp.status}: ${detalhe}`);
+      // Monta "contents" no formato Gemini a partir do mesmo histórico (hist).
+      const contents: any[] = [];
+      for (const h of hist) {
+        const m = h.message ?? {};
+        const role = m.type === "ai" ? "model" : "user";
+        const text = String(m.content ?? "").trim();
+        if (!text) continue;
+        const last = contents[contents.length - 1];
+        if (last && last.role === role) {
+          last.parts.push({ text });
+        } else {
+          contents.push({ role, parts: [{ text }] });
+        }
+      }
+      while (contents.length && contents[0].role !== "user") contents.shift();
+      if (contents.length === 0) {
+        contents.push({ role: "user", parts: [{ text: conteudoIn || "(sem texto)" }] });
+      }
+      if (nudgeSistema) {
+        const last = contents[contents.length - 1];
+        const marcado = `[SISTEMA] ${nudgeSistema}`;
+        if (last && last.role === "user") {
+          last.parts.push({ text: marcado });
+        } else {
+          contents.push({ role: "user", parts: [{ text: marcado }] });
+        }
       }
 
-      const data = await anthResp.json();
-      usageTotal = data.usage ?? usageTotal;
+      for (let iter = 0; iter < 5; iter++) {
+        const geminiResp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": GEMINI_API_KEY,
+            },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              contents,
+              tools: geminiTools,
+            }),
+          },
+        );
 
-      // registra o turno do assistant no histórico local
-      messages.push({ role: "assistant", content: data.content });
+        if (!geminiResp.ok) {
+          const detalhe = await geminiResp.text().catch(() => "");
+          throw new Error(`gemini ${geminiResp.status}: ${detalhe}`);
+        }
 
-      const toolUses = (data.content ?? []).filter(
-        (b: any) => b.type === "tool_use",
-      );
-      const textos = (data.content ?? [])
-        .filter((b: any) => b.type === "text")
-        .map((b: any) => b.text)
-        .join("\n\n")
-        .trim();
+        const data = await geminiResp.json();
+        usageTotal = data.usageMetadata ?? usageTotal;
 
-      if (toolUses.length === 0) {
-        textoFinal = textos;
-        break;
+        const parts = data?.candidates?.[0]?.content?.parts ?? [];
+        const funcCalls = parts.filter((p: any) => p.functionCall);
+        const textos = parts
+          .filter((p: any) => p.text)
+          .map((p: any) => p.text)
+          .join("\n\n")
+          .trim();
+
+        // registra o turno do model no histórico local
+        contents.push({ role: "model", parts });
+
+        if (funcCalls.length === 0) {
+          textoFinal = textos;
+          break;
+        }
+
+        // executa cada tool e monta os functionResponse
+        const funcResponseParts: any[] = [];
+        for (const fc of funcCalls) {
+          const resultado = await executarTool(admin, {
+            nome: fc.functionCall.name,
+            input: fc.functionCall.args ?? {},
+            workspaceId,
+            contactId,
+            phone,
+          });
+          if (fc.functionCall.name === "escalar_humano") escalou = true;
+          funcResponseParts.push({
+            functionResponse: { name: fc.functionCall.name, response: resultado },
+          });
+        }
+        contents.push({ role: "function", parts: funcResponseParts });
+
+        if (escalou) {
+          textoFinal =
+            textos ||
+            `${assinatura}\nVou te conectar agora com o Arthur, nosso especialista, que vai te dar toda a atenção. 🙏\n\nJá te respondo por aqui, tá bom?`;
+          break;
+        }
       }
-
-      // executa cada tool e monta os tool_results
-      const toolResults: any[] = [];
-      for (const tu of toolUses) {
-        const resultado = await executarTool(admin, {
-          nome: tu.name,
-          input: tu.input,
-          workspaceId,
-          contactId,
-          phone,
+    } else {
+      for (let iter = 0; iter < 5; iter++) {
+        const anthResp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: modelo,
+            max_tokens: 1024,
+            system: systemPrompt,
+            tools: TOOLS,
+            messages,
+          }),
         });
-        if (tu.name === "escalar_humano") escalou = true;
-        toolResults.push({
-          type: "tool_result",
-          tool_use_id: tu.id,
-          content: JSON.stringify(resultado),
-        });
-      }
-      messages.push({ role: "user", content: toolResults });
 
-      // Se escalou para humano, encerra com transição suave (usa texto do modelo se houver).
-      if (escalou) {
-        textoFinal =
-          textos ||
-          `${assinatura}\nVou te conectar agora com o Arthur, nosso especialista, que vai te dar toda a atenção. 🙏\n\nJá te respondo por aqui, tá bom?`;
-        break;
+        if (!anthResp.ok) {
+          const detalhe = await anthResp.text().catch(() => "");
+          throw new Error(`anthropic ${anthResp.status}: ${detalhe}`);
+        }
+
+        const data = await anthResp.json();
+        usageTotal = data.usage ?? usageTotal;
+
+        // registra o turno do assistant no histórico local
+        messages.push({ role: "assistant", content: data.content });
+
+        const toolUses = (data.content ?? []).filter(
+          (b: any) => b.type === "tool_use",
+        );
+        const textos = (data.content ?? [])
+          .filter((b: any) => b.type === "text")
+          .map((b: any) => b.text)
+          .join("\n\n")
+          .trim();
+
+        if (toolUses.length === 0) {
+          textoFinal = textos;
+          break;
+        }
+
+        // executa cada tool e monta os tool_results
+        const toolResults: any[] = [];
+        for (const tu of toolUses) {
+          const resultado = await executarTool(admin, {
+            nome: tu.name,
+            input: tu.input,
+            workspaceId,
+            contactId,
+            phone,
+          });
+          if (tu.name === "escalar_humano") escalou = true;
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: tu.id,
+            content: JSON.stringify(resultado),
+          });
+        }
+        messages.push({ role: "user", content: toolResults });
+
+        // Se escalou para humano, encerra com transição suave (usa texto do modelo se houver).
+        if (escalou) {
+          textoFinal =
+            textos ||
+            `${assinatura}\nVou te conectar agora com o Arthur, nosso especialista, que vai te dar toda a atenção. 🙏\n\nJá te respondo por aqui, tá bom?`;
+          break;
+        }
       }
     }
 

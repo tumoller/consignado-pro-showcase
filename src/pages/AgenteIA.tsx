@@ -31,8 +31,8 @@ Este é um resumo — o prompt completo padrão fica embutido na function do age
 
 const PROVIDERS = [
   { value: 'anthropic', label: 'Anthropic', disabled: false },
+  { value: 'gemini', label: 'Gemini', disabled: false },
   { value: 'openai', label: 'OpenAI', disabled: true },
-  { value: 'gemini', label: 'Gemini', disabled: true },
 ] as const;
 
 const MODELOS_POR_PROVIDER: Record<string, { value: string; label: string; descricao: string }[]> = {
@@ -41,8 +41,11 @@ const MODELOS_POR_PROVIDER: Record<string, { value: string; label: string; descr
     { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', descricao: 'Mais rápido e barato, ideal para alto volume' },
     { value: 'claude-opus-4-8', label: 'Claude Opus 4.8', descricao: 'Máximo raciocínio, custo mais alto' },
   ],
+  gemini: [
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', descricao: 'Rápido e barato, ideal para alto volume (recomendado)' },
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', descricao: 'Máximo raciocínio, custo mais alto' },
+  ],
   openai: [],
-  gemini: [],
 };
 
 function chamadaText(payload: unknown): string {
