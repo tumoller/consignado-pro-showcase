@@ -1,0 +1,55 @@
+# Compose de referência da wuzapi (WhatsApp API não-oficial, Go/whatsmeow).
+#
+# IMPORTANTE: na Railway NÃO se sobe compose — cada serviço é deployado individualmente.
+# Este arquivo serve para (a) testar local/VPS e (b) documentar EXATAMENTE quais
+# variáveis de ambiente e volumes a Railway precisa. Ver o mapeamento Railway em
+# docs/specs/2026-07-12-plano-wuzapi-railway.md.
+#
+# A wuzapi precisa de UM container sempre ligado (a sessão do WhatsApp mora nele).
+# Perder o volume dbdata = perder a sessão = re-parear o QR.
+
+services:
+  wuzapi:
+    # Opção A (garante build correto): clone o repo e builde
+    #   git clone https://github.com/asternic/wuzapi.git ./wuzapi-src
+    build:
+      context: ./wuzapi-src
+    # Opção B: imagem pública — confirme a tag atual no README do repo antes de usar
+    # image: <registro>/wuzapi:latest
+    container_name: wuzapi
+    restart: unless-stopped
+    ports:
+      - "8080:8080"                       # wuzapi escuta na 8080 por padrão
+    environment:
+      # Token de ADMIN (cria/gerencia instâncias). Gere um valor longo e aleatório.
+      WUZAPI_ADMIN_TOKEN: ${WUZAPI_ADMIN_TOKEN}
+      TZ: America/Sao_Paulo
+      # Por padrão a wuzapi usa SQLite em /app/dbdata (persistido no volume abaixo).
+      # Para Postgres, descomente o serviço postgres e estas 5 linhas:
+      # DB_USER: wuzapi
+      # DB_PASSWORD: ${DB_PASSWORD}
+      # DB_NAME: wuzapi
+      # DB_HOST: postgres
+      # DB_PORT: 5432
+    volumes:
+      - wuzapi_data:/app/dbdata            # sessão do WhatsApp + users.db (NÃO perder)
+      - wuzapi_files:/app/files            # mídias recebidas/baixadas
+    # depends_on:
+    #   - postgres
+
+  # --- Postgres opcional (mais durável que SQLite p/ produção) ---
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: wuzapi-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: wuzapi
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD}
+  #     POSTGRES_DB: wuzapi
+  #   volumes:
+  #     - wuzapi_pg:/var/lib/postgresql/data
+
+volumes:
+  wuzapi_data:
+  wuzapi_files:
+  # wuzapi_pg:
