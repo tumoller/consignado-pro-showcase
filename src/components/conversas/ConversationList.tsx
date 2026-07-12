@@ -2,6 +2,7 @@
 import { Bot, BotOff, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { chatMessageText, fmtPhone } from '@/hooks/useCrmData';
 import { ContactLite } from '@/hooks/useConversasData';
@@ -53,6 +54,8 @@ interface ConversationListProps {
   onSearchChange: (v: string) => void;
   selectedSessionId: string | null;
   onSelect: (sessionId: string) => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 export function ConversationList({
@@ -64,10 +67,12 @@ export function ConversationList({
   onSearchChange,
   selectedSessionId,
   onSelect,
+  hasMore,
+  onLoadMore,
 }: ConversationListProps) {
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="p-3 border-b border-border shrink-0">
+      <div className="p-3.5 border-b border-border shrink-0">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -108,7 +113,7 @@ export function ConversationList({
                     type="button"
                     onClick={() => onSelect(c.session_id)}
                     aria-label={`Abrir conversa com ${name}`}
-                    className={`w-full text-left flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors ${
+                    className={`w-full text-left flex items-center gap-3 px-3.5 py-3.5 hover:bg-muted/50 transition-colors ${
                       selected ? 'bg-muted' : ''
                     }`}
                   >
@@ -148,6 +153,13 @@ export function ConversationList({
               );
             })}
           </ul>
+        )}
+        {!isLoading && !isError && hasMore && (
+          <div className="p-3 flex justify-center">
+            <Button variant="ghost" size="sm" onClick={onLoadMore}>
+              Carregar mais
+            </Button>
+          </div>
         )}
       </div>
     </div>

@@ -30,22 +30,27 @@ import {
   useBancosAtivos,
   fmtDate,
 } from '@/hooks/useCrmData';
+import { useProdutosAtivos, useConveniosNegocioAtivos } from '@/hooks/useConfigNegocio';
 
 interface ProposalFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   proposta?: Proposta | null; // Se fornecido, modo de edição
+  presetContact?: { id: number; nome: string | null } | null; // Cliente pré-vinculado (nova proposta a partir da ficha)
 }
 
 export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
   open,
   onOpenChange,
   proposta,
+  presetContact,
 }) => {
   const { activeWorkspaceId } = useWorkspace();
   const createMutation = useCreateProposta(activeWorkspaceId);
   const updateMutation = useUpdateProposta(activeWorkspaceId);
   const { data: bancos } = useBancosAtivos();
+  const { data: produtos } = useProdutosAtivos(activeWorkspaceId);
+  const { data: conveniosNegocio } = useConveniosNegocioAtivos(activeWorkspaceId);
 
   // Estados do formulário
   const [contactId, setContactId] = useState<number | null>(null);
@@ -53,8 +58,8 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
   const [showContactList, setShowContactList] = useState(false);
   const [selectedContactName, setSelectedContactName] = useState('');
 
-  const [produto, setProduto] = useState('');
   const [operacao, setOperacao] = useState('');
+  const [convenio, setConvenio] = useState('');
   const [bcoOp, setBcoOp] = useState('');
   const [bcoPort, setBcoPort] = useState('');
   const [saldo, setSaldo] = useState('');
@@ -80,8 +85,8 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
         setContactId(proposta.contact_id);
         setSelectedContactName(proposta.contacts?.nome || '');
         setSearchContact(proposta.contacts?.nome || '');
-        setProduto(proposta.produto || '');
-        setOperacao(proposta.operacao || '');
+        setOperacao(proposta.operacao || proposta.produto || '');
+        setConvenio(proposta.convenio || '');
         setBcoOp(proposta.bco_op || '');
         setBcoPort(proposta.bco_port || '');
         setSaldo(proposta.saldo?.toString() || '');
@@ -97,12 +102,12 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
         setDataCipAverb(proposta.data_cip_averb || '');
         setPromotora(proposta.promotora || '');
       } else {
-        // Limpa campos para novo cadastro
-        setContactId(null);
-        setSelectedContactName('');
-        setSearchContact('');
-        setProduto('');
+        // Limpa campos para novo cadastro (pré-vincula cliente se fornecido)
+        setContactId(presetContact?.id ?? null);
+        setSelectedContactName(presetContact?.nome ?? '');
+        setSearchContact(presetContact?.nome ?? '');
         setOperacao('');
+        setConvenio('');
         setBcoOp('');
         setBcoPort('');
         setSaldo('');
@@ -119,7 +124,7 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
         setPromotora('');
       }
     }
-  }, [open, proposta]);
+  }, [open, proposta, presetContact]);
 
   // Comissão estimada calculada em tempo real (read-only)
   const estimatedCommission = useMemo(() => {
@@ -139,8 +144,8 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
 
     const payload = {
       contact_id: contactId,
-      produto: produto || null,
       operacao: operacao || null,
+      convenio: convenio || null,
       bco_op: bcoOp || null,
       bco_port: bcoPort || null,
       saldo: saldo ? parseFloat(saldo) : null,
@@ -219,7 +224,7 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
                     placeholder={selectedContactName ? `Selecionado: ${selectedContactName}` : "Pesquise para selecionar o cliente..."}
                     value={searchContact}
                     className="pl-9"
-                    disabled={!!proposta}
+                    disabled={!!proposta || !!presetContact}
                     onChange={(e) => {
                       setSearchContact(e.target.value);
                       setShowContactList(true);
@@ -263,22 +268,43 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label htmlFor="produto">Produto</Label>
-                  <Input
-                    id="produto"
-                    placeholder="Ex: Portabilidade, Margem Livre"
-                    value={produto}
-                    onChange={(e) => setProduto(e.target.value)}
-                  />
+                  <Label htmlFor="operacao">Produto</Label>
+                  <Select value={operacao || ''} onValueChange={setOperacao}>
+                    <SelectTrigger id="operacao">
+                      <SelectValue placeholder="Selecione o produto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(produtos ?? []).map((p) => (
+                        <SelectItem key={p.id} value={p.nome}>
+                          {p.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="operacao">Operação</Label>
-                  <Input
-                    id="operacao"
-                    placeholder="Ex: NOVO, PORT, REFIN"
-                    value={operacao}
-                    onChange={(e) => setOperacao(e.target.value)}
-                  />
+                  <Label htmlFor="convenio">Convênio</Label>
+                  <Select
+                    value={convenio || ''}
+                    onValueChange={(val) => {
+                      setConvenio(val);
+                      const conv = (conveniosNegocio ?? []).find((c) => c.nome === val);
+                      if (conv?.prazo_maximo_meses && (!qtdeParc || Number(qtdeParc) > conv.prazo_maximo_meses)) {
+                        setQtdeParc(String(conv.prazo_maximo_meses));
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="convenio">
+                      <SelectValue placeholder="Selecione o convênio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(conveniosNegocio ?? []).map((c) => (
+                        <SelectItem key={c.id} value={c.nome}>
+                          {c.nome}{c.prazo_maximo_meses ? ` (até ${c.prazo_maximo_meses}x)` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1">
@@ -400,17 +426,22 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
                       <SelectValue placeholder="Selecione o prazo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="12">12 parcelas</SelectItem>
-                      <SelectItem value="24">24 parcelas</SelectItem>
-                      <SelectItem value="36">36 parcelas</SelectItem>
-                      <SelectItem value="48">48 parcelas</SelectItem>
-                      <SelectItem value="60">60 parcelas</SelectItem>
-                      <SelectItem value="72">72 parcelas</SelectItem>
-                      <SelectItem value="84">84 parcelas</SelectItem>
-                      <SelectItem value="96">96 parcelas</SelectItem>
-                      <SelectItem value="120">120 parcelas</SelectItem>
+                      {[12, 24, 36, 48, 60, 72, 84, 96, 108, 120]
+                        .filter((n) => {
+                          const conv = (conveniosNegocio ?? []).find((c) => c.nome === convenio);
+                          return !conv?.prazo_maximo_meses || n <= conv.prazo_maximo_meses;
+                        })
+                        .map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n} parcelas</SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
+                  {(() => {
+                    const conv = (conveniosNegocio ?? []).find((c) => c.nome === convenio);
+                    return conv?.prazo_maximo_meses ? (
+                      <p className="text-xs text-muted-foreground">Prazo máximo para {conv.nome}: {conv.prazo_maximo_meses}x</p>
+                    ) : null;
+                  })()}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="taxa">Taxa de Juros % (a.m.)</Label>

@@ -13,11 +13,13 @@ import {
   useChatsRealtime,
   useTogglePauseAi,
   useSendMessage,
+  CONVERSATIONS_PAGE_SIZE,
 } from '@/hooks/useConversasData';
 import { useToast } from '@/hooks/use-toast';
 import { ConversationList } from '@/components/conversas/ConversationList';
 import { ChatThread } from '@/components/conversas/ChatThread';
 import { ChatComposer } from '@/components/conversas/ChatComposer';
+import { ContactSheet } from '@/components/conversas/ContactSheet';
 
 const initials = (name: string) =>
   name
@@ -35,6 +37,8 @@ const Conversas = () => {
   const conversations = useConversationsList(activeWorkspaceId);
   const [search, setSearch] = useState('');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(CONVERSATIONS_PAGE_SIZE);
+  const [contactSheetOpen, setContactSheetOpen] = useState(false);
 
   useChatsRealtime(activeWorkspaceId, selectedSessionId);
 
@@ -53,6 +57,19 @@ const Conversas = () => {
         c.session_id.toLowerCase().includes(s)
     );
   }, [conversations.data, search]);
+
+  // Renderização incremental (25/50/75...) sem re-fetch — reseta ao trocar a busca.
+  const visibleItems = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMore = visibleCount < filtered.length;
+
+  const handleSearchChange = (v: string) => {
+    setSearch(v);
+    setVisibleCount(CONVERSATIONS_PAGE_SIZE);
+  };
+
+  const handleLoadMore = () => {
+    setVisibleCount((v) => v + CONVERSATIONS_PAGE_SIZE);
+  };
 
   const selected = useMemo(
     () => filtered.find((c) => c.session_id === selectedSessionId) ?? null,
@@ -114,7 +131,7 @@ const Conversas = () => {
         <h1 className="text-3xl font-bold text-foreground">Conversas</h1>
         <p className="text-muted-foreground mt-1">
           {conversations.data
-            ? `${conversations.data.length} conversas no WhatsApp`
+            ? `${filtered.length} conversas no WhatsApp`
             : 'Histórico de conversas do WhatsApp'}
         </p>
       </div>
@@ -128,14 +145,16 @@ const Conversas = () => {
             }`}
           >
             <ConversationList
-              items={filtered}
+              items={visibleItems}
               isLoading={conversations.isLoading}
               isError={conversations.isError}
               error={conversations.error as Error | null}
               search={search}
-              onSearchChange={setSearch}
+              onSearchChange={handleSearchChange}
               selectedSessionId={selectedSessionId}
               onSelect={setSelectedSessionId}
+              hasMore={hasMore}
+              onLoadMore={handleLoadMore}
             />
           </div>
 
@@ -187,7 +206,7 @@ const Conversas = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate(`/contatos?open=${selected.contact!.id}`)}
+                      onClick={() => setContactSheetOpen(true)}
                       className="shrink-0"
                     >
                       <ExternalLink className="h-3.5 w-3.5 mr-1" /> Ver ficha
@@ -203,6 +222,17 @@ const Conversas = () => {
                 />
 
                 <ChatComposer onSend={handleSend} disabled={sendMessage.isPending} />
+
+                <ContactSheet
+                  open={contactSheetOpen}
+                  onOpenChange={setContactSheetOpen}
+                  contact={selected.contact}
+                  fallbackName={selectedName}
+                  onOpenFullProfile={() => {
+                    setContactSheetOpen(false);
+                    navigate(`/contatos?open=${selected.contact!.id}`);
+                  }}
+                />
               </>
             )}
           </div>

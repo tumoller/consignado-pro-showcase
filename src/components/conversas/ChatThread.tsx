@@ -85,9 +85,9 @@ export function ChatThread({ messages, isLoading, isError, error }: ChatThreadPr
   }
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+    <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
       {grouped.map((group) => (
-        <div key={group.day} className="space-y-2">
+        <div key={group.day} className="space-y-2.5">
           <div className="flex justify-center">
             <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               {group.day}

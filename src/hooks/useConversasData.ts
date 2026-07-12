@@ -24,9 +24,18 @@ export interface ContactLite {
   status: string | null;
   pause_ai: boolean | null;
   workspace_id: string | number;
+  qualificacao: string | null;
+  convenio: string | null;
+  esp_benef: string | null;
 }
 
+export const CONVERSATIONS_PAGE_SIZE = 25;
+
 // ---------- Lista de conversas (RPC existente) + join manual com contacts ----------
+// NOTA: get_workspace_conversations(p_workspace_id) não aceita limit/offset hoje.
+// Buscamos tudo e paginamos a renderização no cliente (25/50/75...) para reduzir
+// custo de render inicial. Se a RPC ganhar parâmetros p_limit/p_offset no futuro,
+// trocar por paginação real no servidor (useInfiniteQuery).
 export function useConversationsList(workspaceId: string | null) {
   const conversations = useQuery({
     queryKey: ['conversations', workspaceId],
@@ -45,7 +54,9 @@ export function useConversationsList(workspaceId: string | null) {
     queryFn: async (): Promise<ContactLite[]> => {
       const { data, error } = await supabase
         .from('contacts')
-        .select('id, phone_number, nome, departamento, status, pause_ai, workspace_id')
+        .select(
+          'id, phone_number, nome, departamento, status, pause_ai, workspace_id, qualificacao, convenio, esp_benef'
+        )
         .eq('workspace_id', workspaceId);
       if (error) throw error;
       return (data ?? []) as ContactLite[];

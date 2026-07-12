@@ -1,6 +1,6 @@
 // src/components/configuracoes/UsuariosBancoSection.tsx
 import { useState } from 'react';
-import { Plus, Loader2, Pencil, Info } from 'lucide-react';
+import { Plus, Loader2, Pencil, Info, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,16 +8,34 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useBancosAtivos } from '@/hooks/useCrmData';
-import { usePromotoras, useUsuariosBanco, useMutationUsuarioBanco, UsuarioBanco } from '@/hooks/useConfigNegocio';
+import { usePromotoras, useUsuariosBanco, useMutationUsuarioBanco, useDeleteUsuarioBanco, UsuarioBanco } from '@/hooks/useConfigNegocio';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 const DUPLICATE_CODE = '23505';
+const FK_VIOLATION_CODE = '23503';
 
 function friendlyError(err: any): string {
   if (err?.code === DUPLICATE_CODE) {
     return 'Esse login já existe para esse banco/promotora.';
+  }
+  return err?.message ?? 'Erro desconhecido.';
+}
+
+function friendlyDeleteError(err: any): string {
+  if (err?.code === FK_VIOLATION_CODE) {
+    return 'Este usuário de banco está em uso (vinculado a propostas). Inative-o em vez de excluir.';
   }
   return err?.message ?? 'Erro desconhecido.';
 }
@@ -38,12 +56,28 @@ const UsuariosBancoSection = () => {
   const promotoras = usePromotoras(activeWorkspaceId);
   const usuarios = useUsuariosBanco(activeWorkspaceId);
   const mutate = useMutationUsuarioBanco(activeWorkspaceId);
+  const deleteMutate = useDeleteUsuarioBanco(activeWorkspaceId);
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editing, setEditing] = useState<UsuarioBanco | null>(null);
   const [editForm, setEditForm] = useState<FormState>(emptyForm);
+  const [deleting, setDeleting] = useState<UsuarioBanco | null>(null);
 
-  const isMutating = mutate.isPending;
+  const isMutating = mutate.isPending || deleteMutate.isPending;
+
+  const handleConfirmDelete = () => {
+    if (!deleting) return;
+    deleteMutate.mutate(deleting.id, {
+      onSuccess: () => {
+        toast.success('Usuário de banco excluído com sucesso!');
+        setDeleting(null);
+      },
+      onError: (err: any) => {
+        toast.error(friendlyDeleteError(err));
+        setDeleting(null);
+      },
+    });
+  };
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +230,9 @@ const UsuariosBancoSection = () => {
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEdit(u)} disabled={isMutating}>
                       <Pencil className="h-4 w-4" />
                     </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setDeleting(u)} disabled={isMutating}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">{u.ativo ? 'Ativo' : 'Inativo'}</span>
                       <Switch checked={u.ativo} onCheckedChange={(val) => handleToggleAtivo(u, val)} disabled={isMutating} />
@@ -259,6 +296,23 @@ const UsuariosBancoSection = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário de banco "{deleting?.login}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. Se o usuário já estiver em uso, a exclusão será bloqueada — nesse caso, inative-o.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMutating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} disabled={isMutating} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

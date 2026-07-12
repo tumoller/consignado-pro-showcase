@@ -35,20 +35,24 @@ export const ProposalKanban: React.FC<ProposalKanbanProps> = ({
     );
   }
 
-  // Agrupa as propostas por coluna
+  // Agrupa as propostas por coluna (mais recente primeiro dentro da coluna)
   const getPropostasByStatus = (statusKey: string) => {
-    return propostas.filter((p) => {
-      const pStatus = (p.status || '').toLowerCase().trim();
-      const sKey = statusKey.toLowerCase().trim();
+    return propostas
+      .filter((p) => {
+        const pStatus = (p.status || '').toLowerCase().trim();
+        const sKey = statusKey.toLowerCase().trim();
 
-      // Mapeamento flexível
-      if (sKey === 'paga' && pStatus.startsWith('pag')) return true;
-      if (sKey === 'cancelada' && pStatus.startsWith('canc')) return true;
-      if (sKey === 'não iniciada' && (pStatus === 'não iniciada' || pStatus === 'nao iniciada' || pStatus === '')) return true;
-      
-      // Fallback para correspondência exata
-      return pStatus === sKey;
-    });
+        // Mapeamento flexível
+        if (sKey === 'paga' && pStatus.startsWith('pag')) return true;
+        if (sKey === 'cancelada' && pStatus.startsWith('canc')) return true;
+        if (sKey === 'não iniciada' && (pStatus === 'não iniciada' || pStatus === 'nao iniciada' || pStatus === '')) return true;
+
+        // Fallback para correspondência exata
+        return pStatus === sKey;
+      })
+      .sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
   };
 
   const handleCardDrop = (id: number, targetStatus: string) => {

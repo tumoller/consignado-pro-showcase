@@ -46,6 +46,7 @@ export interface Proposta {
   contact_id: number | null;
   produto: string | null;
   operacao: string | null;
+  convenio: string | null;
   bco_op: string | null;
   bco_port: string | null;
   status: string | null;
@@ -122,7 +123,7 @@ export function useContactDetail(contactId: number | null) {
           .from('propostas')
           .select('*')
           .eq('contact_id', contactId)
-          .order('data_cip_averb', { ascending: false, nullsFirst: false }),
+          .order('created_at', { ascending: false, nullsFirst: false }),
       ]);
       if (e1) throw e1;
       if (e2) throw e2;
@@ -141,7 +142,7 @@ export function usePropostas(workspaceId: string | null) {
         .from('propostas')
         .select('*, contacts(nome, cpf)')
         .eq('workspace_id', workspaceId)
-        .order('data_cip_averb', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false, nullsFirst: false })
         .limit(1000);
       if (error) throw error;
       return data as Proposta[];
@@ -231,6 +232,7 @@ export function useUpdateContact(workspaceId: string | null) {
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ['contacts', workspaceId] });
       qc.invalidateQueries({ queryKey: ['contact', variables.id] });
+      qc.invalidateQueries({ queryKey: ['contact_timeline', variables.id] });
     },
   });
 }
@@ -245,8 +247,12 @@ export function useCreateProposta(workspaceId: string | null) {
         .insert({ ...proposta, workspace_id: workspaceId });
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ['propostas', workspaceId] });
+      if (variables?.contact_id) {
+        qc.invalidateQueries({ queryKey: ['contact', variables.contact_id] });
+        qc.invalidateQueries({ queryKey: ['contact_timeline', variables.contact_id] });
+      }
     },
   });
 }
@@ -266,6 +272,7 @@ export function useUpdateProposta(workspaceId: string | null) {
       qc.invalidateQueries({ queryKey: ['propostas', workspaceId] });
       if (variables.contact_id) {
         qc.invalidateQueries({ queryKey: ['contact', variables.contact_id] });
+        qc.invalidateQueries({ queryKey: ['contact_timeline', variables.contact_id] });
       }
     },
   });

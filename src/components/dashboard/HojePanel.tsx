@@ -1,9 +1,11 @@
 // src/components/dashboard/HojePanel.tsx — Fila de trabalho "Hoje" no topo do dashboard
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlarmClock, MessageCircle, Wallet, Cake, CheckCircle2 } from 'lucide-react';
+import { AlarmClock, MessageCircle, Wallet, Cake, CheckCircle2, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { fmtDateTime } from '@/hooks/useCrmData';
 import {
@@ -12,6 +14,7 @@ import {
   usePropostasParadas,
   useAniversariantesMes,
 } from '@/hooks/useHojeData';
+import { ContactSheet } from '@/components/contatos/ContactSheet';
 
 const MAX_ITEMS = 5;
 
@@ -32,14 +35,25 @@ interface BlockProps {
   emptyLabel: string;
   onNavigate: () => void;
   children: React.ReactNode;
+  infoTooltip?: string;
 }
 
-const HojeBlock = ({ icon, title, count, isLoading, emptyLabel, onNavigate, children }: BlockProps) => (
+const HojeBlock = ({ icon, title, count, isLoading, emptyLabel, onNavigate, children, infoTooltip }: BlockProps) => (
   <Card>
     <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
       <CardTitle className="text-sm font-semibold flex items-center gap-2">
         {icon}
         {title}
+        {infoTooltip && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-xs">{infoTooltip}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </CardTitle>
       {!isLoading && count > 0 && <Badge variant="secondary">{count}</Badge>}
     </CardHeader>
@@ -73,6 +87,7 @@ const HojeBlock = ({ icon, title, count, isLoading, emptyLabel, onNavigate, chil
 export function HojePanel() {
   const { activeWorkspaceId } = useWorkspace();
   const navigate = useNavigate();
+  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
 
   const followUps = useFollowUpsHoje(activeWorkspaceId);
   const leads = useLeadsAguardando(activeWorkspaceId);
@@ -143,6 +158,7 @@ export function HojePanel() {
           isLoading={propostas.isLoading}
           emptyLabel="Nenhuma proposta parada"
           onNavigate={() => navigate('/propostas')}
+          infoTooltip="Considera propostas com status ativo (não paga e não cancelada) sem atualização (updated_at) há mais de 7 dias."
         >
           {propostasList.slice(0, MAX_ITEMS).map((p) => (
             <button
@@ -171,7 +187,7 @@ export function HojePanel() {
           {aniversariantesList.slice(0, MAX_ITEMS).map((a) => (
             <button
               key={a.id}
-              onClick={() => navigate('/contatos')}
+              onClick={() => setSelectedContactId(a.id)}
               className="block w-full text-left text-xs rounded px-1.5 py-1 -mx-1.5 hover:bg-muted/60 transition-colors"
             >
               <div className="font-medium truncate text-foreground">{a.nome || 'Sem nome'}</div>
@@ -180,6 +196,8 @@ export function HojePanel() {
           ))}
         </HojeBlock>
       </div>
+
+      <ContactSheet contactId={selectedContactId} onClose={() => setSelectedContactId(null)} />
     </div>
   );
 }

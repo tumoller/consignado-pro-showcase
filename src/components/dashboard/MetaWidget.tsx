@@ -1,4 +1,4 @@
-// src/components/dashboard/MetaWidget.tsx — Progresso da meta do mês corrente
+// src/components/dashboard/MetaWidget.tsx — Progresso da meta de comissão do mês corrente
 import { useState } from 'react';
 import { Target, Pencil } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,35 +33,34 @@ export function MetaWidget() {
   const upsertMeta = useUpsertMeta(activeWorkspaceId);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formVolume, setFormVolume] = useState('');
   const [formComissao, setFormComissao] = useState('');
-  const [formFechamentos, setFormFechamentos] = useState('');
 
   const isLoading = meta.isLoading || realizado.isLoading;
 
   const openDialog = () => {
-    setFormVolume(meta.data?.meta_volume?.toString() ?? '');
     setFormComissao(meta.data?.meta_comissao?.toString() ?? '');
-    setFormFechamentos(meta.data?.meta_fechamentos?.toString() ?? '');
     setIsDialogOpen(true);
   };
 
   const handleSave = async () => {
     await upsertMeta.mutateAsync({
-      meta_volume: Number(formVolume) || 0,
       meta_comissao: Number(formComissao) || 0,
-      meta_fechamentos: Number(formFechamentos) || 0,
     });
     setIsDialogOpen(false);
   };
 
-  const r = realizado.data ?? { comissao: 0, volume: 0, fechamentos: 0 };
+  const r = realizado.data ?? {
+    digitado: 0,
+    cancelado: 0,
+    comissaoRecebida: 0,
+    comissaoPrevista: 0,
+  };
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
         <CardTitle className="text-sm font-semibold flex items-center gap-2 capitalize">
-          <Target className="h-4 w-4 text-primary" /> Meta de {nomeMesAtual()}
+          <Target className="h-4 w-4 text-primary" /> Meta de comissão de {nomeMesAtual()}
         </CardTitle>
         {meta.data && (
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={openDialog}>
@@ -87,30 +86,34 @@ export function MetaWidget() {
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-muted-foreground">Comissão</span>
+                <span className="text-muted-foreground">Comissão recebida</span>
                 <span className="font-medium text-foreground">
-                  {fmtBRL(r.comissao)} / {fmtBRL(meta.data.meta_comissao)}
+                  {fmtBRL(r.comissaoRecebida)} / {fmtBRL(meta.data.meta_comissao)}
                 </span>
               </div>
-              <Progress value={pct(r.comissao, meta.data.meta_comissao ?? 0)} />
+              <Progress value={pct(r.comissaoRecebida, meta.data.meta_comissao ?? 0)} />
+              <div className="text-right text-[11px] text-muted-foreground mt-1">
+                {pct(r.comissaoRecebida, meta.data.meta_comissao ?? 0)}% da meta
+              </div>
             </div>
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-muted-foreground">Volume</span>
-                <span className="font-medium text-foreground">
-                  {fmtBRL(r.volume)} / {fmtBRL(meta.data.meta_volume)}
-                </span>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="rounded-lg border p-2.5">
+                <div className="text-muted-foreground">Digitado no mês</div>
+                <div className="font-medium text-foreground mt-0.5">{fmtBRL(r.digitado)}</div>
               </div>
-              <Progress value={pct(r.volume, meta.data.meta_volume ?? 0)} />
-            </div>
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-muted-foreground">Fechamentos</span>
-                <span className="font-medium text-foreground">
-                  {r.fechamentos} / {meta.data.meta_fechamentos ?? 0}
-                </span>
+              <div className="rounded-lg border p-2.5">
+                <div className="text-muted-foreground">Cancelado no mês</div>
+                <div className="font-medium text-destructive mt-0.5">{fmtBRL(r.cancelado)}</div>
               </div>
-              <Progress value={pct(r.fechamentos, meta.data.meta_fechamentos ?? 0)} />
+              <div className="rounded-lg border p-2.5">
+                <div className="text-muted-foreground">Comissão recebida</div>
+                <div className="font-medium text-success mt-0.5">{fmtBRL(r.comissaoRecebida)}</div>
+              </div>
+              <div className="rounded-lg border p-2.5">
+                <div className="text-muted-foreground">Comissão prevista</div>
+                <div className="font-medium text-foreground mt-0.5">{fmtBRL(r.comissaoPrevista)}</div>
+              </div>
             </div>
           </div>
         )}
@@ -119,18 +122,9 @@ export function MetaWidget() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="capitalize">Meta de {nomeMesAtual()}</DialogTitle>
+            <DialogTitle className="capitalize">Meta de comissão de {nomeMesAtual()}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div>
-              <Label htmlFor="meta-volume">Meta de volume (R$)</Label>
-              <Input
-                id="meta-volume"
-                type="number"
-                value={formVolume}
-                onChange={(e) => setFormVolume(e.target.value)}
-              />
-            </div>
             <div>
               <Label htmlFor="meta-comissao">Meta de comissão (R$)</Label>
               <Input
@@ -138,15 +132,6 @@ export function MetaWidget() {
                 type="number"
                 value={formComissao}
                 onChange={(e) => setFormComissao(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="meta-fechamentos">Meta de fechamentos</Label>
-              <Input
-                id="meta-fechamentos"
-                type="number"
-                value={formFechamentos}
-                onChange={(e) => setFormFechamentos(e.target.value)}
               />
             </div>
           </div>

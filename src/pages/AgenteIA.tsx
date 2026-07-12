@@ -29,11 +29,21 @@ Regras: nunca promete taxa fechada sem simulação; nunca solicita senha ou dado
 fora do fluxo oficial; respeita horário de atendimento configurado.
 Este é um resumo — o prompt completo padrão fica embutido na function do agente.`;
 
-const MODELOS = [
-  { value: 'claude-sonnet-5', label: 'Sonnet — equilíbrio (recomendado)' },
-  { value: 'claude-haiku-4-5', label: 'Haiku — rápido/barato' },
-  { value: 'claude-opus-4-8', label: 'Opus — máximo raciocínio' },
-];
+const PROVIDERS = [
+  { value: 'anthropic', label: 'Anthropic', disabled: false },
+  { value: 'openai', label: 'OpenAI', disabled: true },
+  { value: 'gemini', label: 'Gemini', disabled: true },
+] as const;
+
+const MODELOS_POR_PROVIDER: Record<string, { value: string; label: string; descricao: string }[]> = {
+  anthropic: [
+    { value: 'claude-sonnet-5', label: 'Claude Sonnet 5', descricao: 'Equilíbrio entre custo e raciocínio (recomendado)' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', descricao: 'Mais rápido e barato, ideal para alto volume' },
+    { value: 'claude-opus-4-8', label: 'Claude Opus 4.8', descricao: 'Máximo raciocínio, custo mais alto' },
+  ],
+  openai: [],
+  gemini: [],
+};
 
 function chamadaText(payload: unknown): string {
   if (payload == null) return '';
@@ -56,7 +66,7 @@ const AgenteIA = () => {
   // Estado local por card, sincronizado quando os dados chegam
   const [statusForm, setStatusForm] = useState<{ enabled: boolean } | null>(null);
   const [identidadeForm, setIdentidadeForm] = useState<{ nome_agente: string; assinatura: string; persona_prompt: string } | null>(null);
-  const [modeloForm, setModeloForm] = useState<{ modelo: string; max_chamadas_dia: string; max_chamadas_conversa: string; debounce_segundos: string } | null>(null);
+  const [modeloForm, setModeloForm] = useState<{ provider: string; modelo: string; max_chamadas_dia: string; max_chamadas_conversa: string; debounce_segundos: string } | null>(null);
   const [horarioForm, setHorarioForm] = useState<{ full24h: boolean; horario_inicio: string; horario_fim: string } | null>(null);
 
   useEffect(() => {
@@ -71,6 +81,7 @@ const AgenteIA = () => {
     }
     if (modeloForm === null) {
       setModeloForm({
+        provider: config.data.provider ?? 'anthropic',
         modelo: config.data.modelo,
         max_chamadas_dia: String(config.data.max_chamadas_dia),
         max_chamadas_conversa: String(config.data.max_chamadas_conversa),
@@ -222,19 +233,55 @@ const AgenteIA = () => {
               <CardDescription>Escolha do modelo de IA e limites de uso por dia/conversa</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1">
-                <Label>Modelo</Label>
-                <Select
-                  value={modeloForm?.modelo ?? ''}
-                  onValueChange={(v) => setModeloForm((f) => (f ? { ...f, modelo: v } : f))}
-                >
-                  <SelectTrigger className="max-w-md"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {MODELOS.map((m) => (
-                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Provider</Label>
+                  <Select
+                    value={modeloForm?.provider ?? 'anthropic'}
+                    onValueChange={(v) =>
+                      setModeloForm((f) => {
+                        if (!f) return f;
+                        const modelosDoProvider = MODELOS_POR_PROVIDER[v] ?? [];
+                        return {
+                          ...f,
+                          provider: v,
+                          modelo: modelosDoProvider[0]?.value ?? f.modelo,
+                        };
+                      })
+                    }
+                  >
+                    <SelectTrigger className="max-w-md"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PROVIDERS.map((p) => (
+                        <SelectItem key={p.value} value={p.value} disabled={p.disabled}>
+                          <span className="flex items-center gap-2">
+                            {p.label}
+                            {p.disabled && <Badge variant="secondary" className="text-[10px]">em breve</Badge>}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Modelo</Label>
+                  <Select
+                    value={modeloForm?.modelo ?? ''}
+                    onValueChange={(v) => setModeloForm((f) => (f ? { ...f, modelo: v } : f))}
+                  >
+                    <SelectTrigger className="max-w-md"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(MODELOS_POR_PROVIDER[modeloForm?.provider ?? 'anthropic'] ?? []).map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          <span className="flex flex-col">
+                            <span>{m.label}</span>
+                            <span className="text-xs text-muted-foreground">{m.descricao}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
@@ -245,7 +292,12 @@ const AgenteIA = () => {
                     value={modeloForm?.max_chamadas_dia ?? ''}
                     onChange={(e) => setModeloForm((f) => (f ? { ...f, max_chamadas_dia: e.target.value } : f))}
                   />
-                  <p className="text-xs text-muted-foreground">Limite diário de chamadas à IA por workspace, para controlar custo.</p>
+                  <p className="text-xs text-muted-foreground">
+                    1 chamada = 1 resposta gerada pela IA (mensagens recebidas não contam). Use 0 para ilimitado.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {Number(modeloForm?.max_chamadas_dia) === 0 ? 'Ilimitado' : `Limite: ${modeloForm?.max_chamadas_dia}/dia`}
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <Label>Máx. chamadas/conversa</Label>
@@ -255,7 +307,12 @@ const AgenteIA = () => {
                     value={modeloForm?.max_chamadas_conversa ?? ''}
                     onChange={(e) => setModeloForm((f) => (f ? { ...f, max_chamadas_conversa: e.target.value } : f))}
                   />
-                  <p className="text-xs text-muted-foreground">Evita loop infinito de respostas numa mesma conversa.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Evita abuso/spam e estouro de contexto numa mesma conversa. Use 0 para ilimitado.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {Number(modeloForm?.max_chamadas_conversa) === 0 ? 'Ilimitado' : `Limite: ${modeloForm?.max_chamadas_conversa}/conversa`}
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <Label>Debounce (segundos)</Label>
@@ -276,6 +333,7 @@ const AgenteIA = () => {
                     modeloForm &&
                     saveField(
                       {
+                        provider: modeloForm.provider,
                         modelo: modeloForm.modelo,
                         max_chamadas_dia: Number(modeloForm.max_chamadas_dia) || 0,
                         max_chamadas_conversa: Number(modeloForm.max_chamadas_conversa) || 0,
@@ -326,6 +384,11 @@ const AgenteIA = () => {
                   </div>
                 </div>
               )}
+              <p className="text-xs text-muted-foreground max-w-lg">
+                Fora do horário configurado, as mensagens recebidas continuam sendo registradas no CRM
+                normalmente, mas o agente não responde automaticamente — a conversa fica para atendimento
+                humano ou é retomada pelo agente quando a janela de horário voltar.
+              </p>
               <div className="flex justify-end">
                 <Button
                   size="sm"
@@ -365,7 +428,9 @@ const AgenteIA = () => {
                       <div className="text-xs text-muted-foreground">Chamadas de IA hoje</div>
                       <div className="text-2xl font-bold text-foreground mt-1">
                         {atividade.data?.chamadasIa ?? 0}
-                        <span className="text-sm text-muted-foreground font-normal"> / {modeloForm?.max_chamadas_dia ?? '—'}</span>
+                        <span className="text-sm text-muted-foreground font-normal">
+                          {' '}/ {Number(modeloForm?.max_chamadas_dia) === 0 ? 'Ilimitado' : modeloForm?.max_chamadas_dia ?? '—'}
+                        </span>
                       </div>
                     </div>
                     <div className="border rounded-md p-4">

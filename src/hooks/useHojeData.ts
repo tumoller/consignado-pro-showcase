@@ -219,13 +219,15 @@ export function useMetaMesAtual(workspaceId: string | null) {
 export function useUpsertMeta(workspaceId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (vals: { meta_volume: number; meta_comissao: number; meta_fechamentos: number }) => {
+    mutationFn: async (vals: { meta_comissao: number }) => {
       const { error } = await supabase
         .from('metas')
         .upsert(
           {
             workspace_id: workspaceId,
             mes: primeiroDiaMesAtual(),
+            meta_volume: 0,
+            meta_fechamentos: 0,
             ...vals,
           },
           { onConflict: 'workspace_id,mes' }
@@ -239,10 +241,12 @@ export function useUpsertMeta(workspaceId: string | null) {
 }
 
 // ---------- Realizado do mês (para o MetaWidget) ----------
+// Considera apenas propostas criadas no mês corrente (regra: "só o mês corrente").
 export interface RealizadoMes {
-  comissao: number;
-  volume: number;
-  fechamentos: number;
+  digitado: number; // soma de saldo das propostas criadas no mês
+  cancelado: number; // soma de saldo das propostas canceladas criadas no mês
+  comissaoRecebida: number; // soma de comissão das propostas pagas criadas no mês
+  comissaoPrevista: number; // soma de comissão das propostas ativas (não pagas/canceladas) criadas no mês
 }
 
 export function useRealizadoMesAtual(workspaceId: string | null) {
@@ -252,18 +256,28 @@ export function useRealizadoMesAtual(workspaceId: string | null) {
       const inicioMes = new Date();
       inicioMes.setDate(1);
       inicioMes.setHours(0, 0, 0, 0);
+      const inicioProximoMes = new Date(inicioMes);
+      inicioProximoMes.setMonth(inicioProximoMes.getMonth() + 1);
+
       const { data, error } = await supabase
         .from('propostas')
-        .select('status, saldo, comissao, updated_at')
+        .select('status, saldo, comissao, created_at')
         .eq('workspace_id', workspaceId)
-        .gte('updated_at', inicioMes.toISOString())
+        .gte('created_at', inicioMes.toISOString())
+        .lt('created_at', inicioProximoMes.toISOString())
         .limit(2000);
       if (error) throw error;
-      const pagas = (data ?? []).filter((p: any) => isPagaStatus(p.status));
+
+      const props = data ?? [];
+      const pagas = props.filter((p: any) => isPagaStatus(p.status));
+      const canceladas = props.filter((p: any) => isCanceladaStatus(p.status));
+      const ativas = props.filter((p: any) => !isPagaStatus(p.status) && !isCanceladaStatus(p.status));
+
       return {
-        comissao: pagas.reduce((acc: number, p: any) => acc + (Number(p.comissao) || 0), 0),
-        volume: pagas.reduce((acc: number, p: any) => acc + (Number(p.saldo) || 0), 0),
-        fechamentos: pagas.length,
+        digitado: props.reduce((acc: number, p: any) => acc + (Number(p.saldo) || 0), 0),
+        cancelado: canceladas.reduce((acc: number, p: any) => acc + (Number(p.saldo) || 0), 0),
+        comissaoRecebida: pagas.reduce((acc: number, p: any) => acc + (Number(p.comissao) || 0), 0),
+        comissaoPrevista: ativas.reduce((acc: number, p: any) => acc + (Number(p.comissao) || 0), 0),
       };
     },
     enabled: !!workspaceId,

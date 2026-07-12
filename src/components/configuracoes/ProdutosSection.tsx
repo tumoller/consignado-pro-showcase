@@ -1,4 +1,4 @@
-// src/components/configuracoes/PromotorasSection.tsx
+// src/components/configuracoes/ProdutosSection.tsx
 import { useState } from 'react';
 import { Plus, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,123 +18,117 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { usePromotoras, useMutationPromotora, useDeletePromotora, Promotora } from '@/hooks/useConfigNegocio';
+import { useProdutos, useMutationProduto, Produto } from '@/hooks/useConfigNegocio';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 const FK_VIOLATION_CODE = '23503';
 
 function friendlyDeleteError(err: any): string {
   if (err?.code === FK_VIOLATION_CODE) {
-    return 'Esta promotora está em uso (usuários de banco ou propostas vinculadas). Inative-a em vez de excluir.';
+    return 'Este produto está em uso em propostas existentes. Inative-o em vez de excluir.';
   }
   return err?.message ?? 'Erro desconhecido.';
 }
 
-const PromotorasSection = () => {
+const ProdutosSection = () => {
   const { activeWorkspaceId } = useWorkspace();
-  const promotoras = usePromotoras(activeWorkspaceId);
-  const mutate = useMutationPromotora(activeWorkspaceId);
-  const deleteMutate = useDeletePromotora(activeWorkspaceId);
-
-  const [deleting, setDeleting] = useState<Promotora | null>(null);
+  const produtos = useProdutos(activeWorkspaceId);
+  const mutate = useMutationProduto(activeWorkspaceId);
 
   const [newNome, setNewNome] = useState('');
-  const [newCnpj, setNewCnpj] = useState('');
   const [newObs, setNewObs] = useState('');
 
-  const [editing, setEditing] = useState<Promotora | null>(null);
+  const [editing, setEditing] = useState<Produto | null>(null);
   const [editNome, setEditNome] = useState('');
-  const [editCnpj, setEditCnpj] = useState('');
   const [editObs, setEditObs] = useState('');
+
+  const [deleting, setDeleting] = useState<Produto | null>(null);
+
+  const isMutating = mutate.isPending;
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNome.trim()) return;
     mutate.mutate(
-      { nome: newNome.trim(), cnpj: newCnpj.trim() || null, observacoes: newObs.trim() || null, action: 'create' },
+      { nome: newNome.trim(), observacoes: newObs.trim() || null, action: 'create' },
       {
         onSuccess: () => {
-          toast.success('Promotora cadastrada com sucesso!');
+          toast.success('Produto cadastrado com sucesso!');
           setNewNome('');
-          setNewCnpj('');
           setNewObs('');
         },
-        onError: (err: any) => toast.error(`Erro ao cadastrar promotora: ${err.message}`),
+        onError: (err: any) => toast.error(`Erro ao cadastrar produto: ${err.message}`),
       }
     );
   };
 
-  const handleToggleAtivo = (p: Promotora, val: boolean) => {
+  const handleToggleAtivo = (p: Produto, val: boolean) => {
     mutate.mutate(
-      { id: p.id, nome: p.nome, cnpj: p.cnpj, observacoes: p.observacoes, ativo: val, action: 'update' },
+      { id: p.id, nome: p.nome, observacoes: p.observacoes, ativo: val, action: 'update' },
       {
-        onSuccess: () => toast.success(`Promotora "${p.nome}" ${val ? 'ativada' : 'desativada'}.`),
-        onError: (err: any) => toast.error(`Erro ao atualizar promotora: ${err.message}`),
+        onSuccess: () => toast.success(`Produto "${p.nome}" ${val ? 'ativado' : 'desativado'}.`),
+        onError: (err: any) => toast.error(`Erro ao atualizar produto: ${err.message}`),
       }
     );
   };
 
-  const openEdit = (p: Promotora) => {
+  const openEdit = (p: Produto) => {
     setEditing(p);
     setEditNome(p.nome);
-    setEditCnpj(p.cnpj ?? '');
     setEditObs(p.observacoes ?? '');
   };
 
   const handleSaveEdit = () => {
     if (!editing) return;
     mutate.mutate(
-      { id: editing.id, nome: editNome.trim(), cnpj: editCnpj.trim() || null, observacoes: editObs.trim() || null, ativo: editing.ativo, action: 'update' },
+      { id: editing.id, nome: editNome.trim(), observacoes: editObs.trim() || null, ativo: editing.ativo, action: 'update' },
       {
         onSuccess: () => {
-          toast.success('Promotora atualizada com sucesso!');
+          toast.success('Produto atualizado com sucesso!');
           setEditing(null);
         },
-        onError: (err: any) => toast.error(`Erro ao atualizar promotora: ${err.message}`),
+        onError: (err: any) => toast.error(`Erro ao atualizar produto: ${err.message}`),
       }
     );
   };
 
   const handleConfirmDelete = () => {
     if (!deleting) return;
-    deleteMutate.mutate(deleting.id, {
-      onSuccess: () => {
-        toast.success('Promotora excluída com sucesso!');
-        setDeleting(null);
-      },
-      onError: (err: any) => {
-        toast.error(friendlyDeleteError(err));
-        setDeleting(null);
-      },
-    });
+    mutate.mutate(
+      { id: deleting.id, action: 'delete' },
+      {
+        onSuccess: () => {
+          toast.success('Produto excluído com sucesso!');
+          setDeleting(null);
+        },
+        onError: (err: any) => {
+          toast.error(friendlyDeleteError(err));
+          setDeleting(null);
+        },
+      }
+    );
   };
-
-  const isMutating = mutate.isPending || deleteMutate.isPending;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <Card className="md:col-span-1 h-fit">
         <CardHeader>
-          <CardTitle className="text-sm font-semibold">Nova Promotora</CardTitle>
-          <CardDescription>Cadastre uma promotora de crédito parceira</CardDescription>
+          <CardTitle className="text-sm font-semibold">Novo Produto</CardTitle>
+          <CardDescription>Cadastre um produto de crédito ofertado</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAdd} className="space-y-3">
             <div className="space-y-1">
-              <Label htmlFor="prom-nome">Nome</Label>
-              <Input id="prom-nome" placeholder="Ex: Promotora XYZ" value={newNome} onChange={(e) => setNewNome(e.target.value)} required />
+              <Label htmlFor="prod-nome">Nome</Label>
+              <Input id="prod-nome" placeholder="Ex: Portabilidade" value={newNome} onChange={(e) => setNewNome(e.target.value)} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="prom-cnpj">CNPJ</Label>
-              <Input id="prom-cnpj" placeholder="00.000.000/0001-00" value={newCnpj} onChange={(e) => setNewCnpj(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="prom-obs">Observações</Label>
-              <Input id="prom-obs" placeholder="Ex: Contato comercial..." value={newObs} onChange={(e) => setNewObs(e.target.value)} />
+              <Label htmlFor="prod-obs">Observações</Label>
+              <Input id="prod-obs" placeholder="Ex: Detalhes do produto..." value={newObs} onChange={(e) => setNewObs(e.target.value)} />
             </div>
             <Button type="submit" className="w-full mt-2" disabled={isMutating}>
               {isMutating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-              Adicionar Promotora
+              Adicionar Produto
             </Button>
           </form>
         </CardContent>
@@ -142,23 +136,22 @@ const PromotorasSection = () => {
 
       <Card className="md:col-span-2">
         <CardHeader>
-          <CardTitle className="text-sm font-semibold">Promotoras Cadastradas</CardTitle>
-          <CardDescription>Ative/desative ou edite as promotoras. Não há exclusão física — desative para remover do uso.</CardDescription>
+          <CardTitle className="text-sm font-semibold">Produtos Cadastrados</CardTitle>
+          <CardDescription>Ative/desative, edite ou exclua os produtos. Só produtos ativos aparecem no cadastro de proposta.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {promotoras.isLoading ? (
+          {produtos.isLoading ? (
             <div className="p-6 text-center text-muted-foreground flex items-center justify-center gap-2">
               <Loader2 className="h-5 w-5 animate-spin" /> Carregando...
             </div>
-          ) : !promotoras.data || promotoras.data.length === 0 ? (
-            <div className="p-6 text-center text-muted-foreground">Nenhuma promotora cadastrada.</div>
+          ) : !produtos.data || produtos.data.length === 0 ? (
+            <div className="p-6 text-center text-muted-foreground">Nenhum produto cadastrado.</div>
           ) : (
             <div className="divide-y divide-border">
-              {promotoras.data.map((p) => (
+              {produtos.data.map((p) => (
                 <div key={p.id} className="p-4 flex items-center justify-between text-sm">
                   <div className="space-y-0.5">
                     <div className="font-semibold text-foreground">{p.nome}</div>
-                    {p.cnpj && <div className="text-xs text-muted-foreground">{p.cnpj}</div>}
                     {p.observacoes && <div className="text-xs text-muted-foreground">{p.observacoes}</div>}
                   </div>
                   <div className="flex items-center gap-4 select-none">
@@ -169,7 +162,7 @@ const PromotorasSection = () => {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{p.ativo ? 'Ativa' : 'Inativa'}</span>
+                      <span className="text-xs text-muted-foreground">{p.ativo ? 'Ativo' : 'Inativo'}</span>
                       <Switch checked={p.ativo} onCheckedChange={(val) => handleToggleAtivo(p, val)} disabled={isMutating} />
                     </div>
                   </div>
@@ -183,16 +176,12 @@ const PromotorasSection = () => {
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar Promotora</DialogTitle>
+            <DialogTitle>Editar Produto</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
               <Label>Nome</Label>
               <Input value={editNome} onChange={(e) => setEditNome(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>CNPJ</Label>
-              <Input value={editCnpj} onChange={(e) => setEditCnpj(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>Observações</Label>
@@ -209,9 +198,9 @@ const PromotorasSection = () => {
       <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir promotora "{deleting?.nome}"?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir produto "{deleting?.nome}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. Se a promotora já estiver em uso, a exclusão será bloqueada — nesse caso, inative-a.
+              Essa ação não pode ser desfeita. Se o produto já estiver em uso em propostas, a exclusão será bloqueada — nesse caso, inative-o.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -226,4 +215,4 @@ const PromotorasSection = () => {
   );
 };
 
-export default PromotorasSection;
+export default ProdutosSection;

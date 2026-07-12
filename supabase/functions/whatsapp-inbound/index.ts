@@ -528,7 +528,9 @@ Deno.serve(async (req) => {
       .eq("workspace_id", workspaceId)
       .eq("tipo", "chamada_ia")
       .gte("created_at", inicioDia);
-    if ((chamadasDia ?? 0) >= (config.max_chamadas_dia ?? 200)) {
+    // max_chamadas_dia: 0 ou null = ilimitado (sem checagem de budget diário)
+    const maxDia = config.max_chamadas_dia;
+    if (maxDia && maxDia > 0 && (chamadasDia ?? 0) >= maxDia) {
       await admin.from("timeline_events").insert({
         workspace_id: workspaceId,
         contact_id: contactId,
@@ -547,7 +549,9 @@ Deno.serve(async (req) => {
       .eq("contact_id", contactId)
       .eq("tipo", "chamada_ia")
       .gte("created_at", inicioDia);
-    if ((chamadasConversa ?? 0) >= (config.max_chamadas_conversa ?? 30)) {
+    // max_chamadas_conversa: 0 ou null = ilimitado (sem checagem de budget por conversa)
+    const maxConversa = config.max_chamadas_conversa;
+    if (maxConversa && maxConversa > 0 && (chamadasConversa ?? 0) >= maxConversa) {
       await admin.from("timeline_events").insert({
         workspace_id: workspaceId,
         contact_id: contactId,

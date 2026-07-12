@@ -121,6 +121,19 @@ export function useMutationPromotora(workspaceId: string | null) {
   });
 }
 
+export function useDeletePromotora(workspaceId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.from('promotoras').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['promotoras', workspaceId] });
+    },
+  });
+}
+
 // ---------- Usuários de Banco ----------
 export interface UsuarioBanco {
   id: number;
@@ -197,6 +210,192 @@ export function useMutationUsuarioBanco(workspaceId: string | null) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['usuarios_banco', workspaceId] });
+    },
+  });
+}
+
+export function useDeleteUsuarioBanco(workspaceId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.from('usuarios_banco').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['usuarios_banco', workspaceId] });
+    },
+  });
+}
+
+// ---------- Produtos ----------
+export interface Produto {
+  id: number;
+  workspace_id: number;
+  nome: string;
+  ativo: boolean;
+  observacoes: string | null;
+  created_at: string;
+}
+
+export function useProdutos(workspaceId: string | null) {
+  return useQuery({
+    queryKey: ['produtos', workspaceId],
+    queryFn: async (): Promise<Produto[]> => {
+      const { data, error } = await supabase
+        .from('produtos')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('nome', { ascending: true });
+      if (error) throw error;
+      return data as Produto[];
+    },
+    enabled: !!workspaceId,
+  });
+}
+
+export function useProdutosAtivos(workspaceId: string | null) {
+  return useQuery({
+    queryKey: ['produtos_ativos', workspaceId],
+    queryFn: async (): Promise<Produto[]> => {
+      const { data, error } = await supabase
+        .from('produtos')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .eq('ativo', true)
+        .order('nome', { ascending: true });
+      if (error) throw error;
+      return data as Produto[];
+    },
+    enabled: !!workspaceId,
+  });
+}
+
+export function useMutationProduto(workspaceId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      nome,
+      ativo,
+      observacoes,
+      action,
+    }: {
+      id?: number;
+      nome?: string;
+      ativo?: boolean;
+      observacoes?: string | null;
+      action: 'create' | 'update' | 'delete';
+    }) => {
+      if (action === 'create') {
+        const { error } = await supabase
+          .from('produtos')
+          .insert([{ workspace_id: workspaceId, nome, observacoes, ativo: true }]);
+        if (error) throw error;
+      } else if (action === 'update') {
+        const { error } = await supabase
+          .from('produtos')
+          .update({ nome, ativo, observacoes, updated_at: new Date().toISOString() })
+          .eq('id', id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('produtos').delete().eq('id', id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['produtos', workspaceId] });
+      qc.invalidateQueries({ queryKey: ['produtos_ativos', workspaceId] });
+    },
+  });
+}
+
+// ---------- Convênios (com prazo máximo, usado no cadastro de proposta) ----------
+export interface ConvenioNegocio {
+  id: number;
+  workspace_id: number;
+  nome: string;
+  ativo: boolean;
+  motivo_inativo: string | null;
+  prazo_maximo_meses: number | null;
+  created_at: string;
+}
+
+export function useConveniosNegocio(workspaceId: string | null) {
+  return useQuery({
+    queryKey: ['convenios_negocio', workspaceId],
+    queryFn: async (): Promise<ConvenioNegocio[]> => {
+      const { data, error } = await supabase
+        .from('convenios')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .order('nome', { ascending: true });
+      if (error) throw error;
+      return data as ConvenioNegocio[];
+    },
+    enabled: !!workspaceId,
+  });
+}
+
+export function useConveniosNegocioAtivos(workspaceId: string | null) {
+  return useQuery({
+    queryKey: ['convenios_negocio_ativos', workspaceId],
+    queryFn: async (): Promise<ConvenioNegocio[]> => {
+      const { data, error } = await supabase
+        .from('convenios')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .eq('ativo', true)
+        .order('nome', { ascending: true });
+      if (error) throw error;
+      return data as ConvenioNegocio[];
+    },
+    enabled: !!workspaceId,
+  });
+}
+
+export function useMutationConvenioNegocio(workspaceId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      nome,
+      ativo,
+      motivo_inativo,
+      prazo_maximo_meses,
+      action,
+    }: {
+      id?: number;
+      nome?: string;
+      ativo?: boolean;
+      motivo_inativo?: string | null;
+      prazo_maximo_meses?: number | null;
+      action: 'create' | 'update' | 'delete';
+    }) => {
+      if (action === 'create') {
+        const { error } = await supabase
+          .from('convenios')
+          .insert([{ workspace_id: workspaceId, nome, prazo_maximo_meses: prazo_maximo_meses ?? null, ativo: true }]);
+        if (error) throw error;
+      } else if (action === 'update') {
+        const { error } = await supabase
+          .from('convenios')
+          .update({
+            nome,
+            ativo,
+            motivo_inativo: ativo ? null : motivo_inativo,
+            prazo_maximo_meses,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('convenios').delete().eq('id', id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['convenios_negocio', workspaceId] });
+      qc.invalidateQueries({ queryKey: ['convenios_negocio_ativos', workspaceId] });
     },
   });
 }
@@ -333,6 +532,7 @@ export interface ConfigAgente {
   nome_agente: string;
   assinatura: string;
   persona_prompt: string | null;
+  provider: string;
   modelo: string;
   max_chamadas_dia: number;
   max_chamadas_conversa: number;

@@ -18,6 +18,8 @@ import BancosSection from '@/components/configuracoes/BancosSection';
 import PromotorasSection from '@/components/configuracoes/PromotorasSection';
 import UsuariosBancoSection from '@/components/configuracoes/UsuariosBancoSection';
 import ParametrosBancoSection from '@/components/configuracoes/ParametrosBancoSection';
+import ProdutosSection from '@/components/configuracoes/ProdutosSection';
+import ConveniosSection from '@/components/configuracoes/ConveniosSection';
 
 const Configuracoes = () => {
   // Estados para inclusão
@@ -152,8 +154,10 @@ const Configuracoes = () => {
       </div>
 
       <Tabs defaultValue="convenios" className="w-full">
-        <TabsList className="flex flex-wrap h-auto gap-1 w-full max-w-3xl">
-          <TabsTrigger value="convenios">Convênios</TabsTrigger>
+        <TabsList className="flex flex-wrap h-auto gap-1 w-full max-w-4xl">
+          <TabsTrigger value="convenios">Convênios (Contatos)</TabsTrigger>
+          <TabsTrigger value="convenios-propostas">Convênios (Propostas)</TabsTrigger>
+          <TabsTrigger value="produtos">Produtos</TabsTrigger>
           <TabsTrigger value="bancos">Bancos</TabsTrigger>
           <TabsTrigger value="especies">Espécies INSS</TabsTrigger>
           <TabsTrigger value="promotoras">Promotoras</TabsTrigger>
@@ -246,6 +250,16 @@ const Configuracoes = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* TAB 1b: CONVÊNIOS (Propostas) — tabela `convenios`, com prazo máximo e motivo de inativação */}
+        <TabsContent value="convenios-propostas" className="space-y-4 pt-4">
+          <ConveniosSection />
+        </TabsContent>
+
+        {/* TAB 1c: PRODUTOS — usados no cadastro de proposta */}
+        <TabsContent value="produtos" className="space-y-4 pt-4">
+          <ProdutosSection />
         </TabsContent>
 
         {/* TAB 2: BANCOS */}
