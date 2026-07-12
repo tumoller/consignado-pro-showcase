@@ -21,22 +21,54 @@ Ou seja: falta **infra** (subir a wuzapi) + **fiação de variáveis** em 3 luga
 
 ## Passo 1 — Subir a wuzapi na Railway
 
-Railway não consome docker-compose (o `wuzapi/docker-compose.yml` é referência p/ local
-e documentação das envs/volumes). Na Railway é 1 serviço + 1 volume:
+**Correção 2026-07-12:** checando o repo real (`asternic/wuzapi`, branch main) na hora de
+revisar este plano, confirmei que a versão atual **exige Postgres** — não existe mais
+fallback SQLite — e pede 2 chaves extras (`WUZAPI_GLOBAL_ENCRYPTION_KEY`,
+`WUZAPI_GLOBAL_HMAC_KEY`) que a versão anterior deste plano não tinha. Isso explica a trava
+de "não consegui colocar o Postgres" — o passo abaixo resolve.
 
-1. New Project → **Deploy from GitHub repo** apontando para um fork de
-   `github.com/asternic/wuzapi` (Railway builda o Dockerfile do repo).
-   - Alternativa: **Deploy from Docker Image** se você tiver uma imagem confiável (confirme a tag).
-2. **Variables** do serviço:
-   - `WUZAPI_ADMIN_TOKEN` = valor aleatório longo (ex: `openssl rand -hex 24`).
-   - `TZ` = `America/Sao_Paulo`.
-   - (Opcional Postgres: `DB_USER/DB_PASSWORD/DB_NAME/DB_HOST/DB_PORT`. Sem isso, usa SQLite.)
-3. **Volume**: adicione um volume montado em `/app/dbdata` (guarda a sessão do WhatsApp e
-   o users.db). Sem volume, todo redeploy perde a sessão e pede QR de novo.
-   - Confirme o caminho de sessão no README da sua versão da wuzapi; ajuste o mount se diferir.
-4. **Networking**: gere um domínio público (`xxx.up.railway.app`) e defina a porta-alvo `8080`.
+Railway não consome docker-compose (o `wuzapi/docker-compose.yml`, já corrigido, é só
+referência/documentação das envs). Na Railway são **2 serviços no mesmo projeto**: o app
+wuzapi + um banco Postgres.
+
+1. **Criar o Postgres primeiro**: no projeto Railway → **New** → **Database** →
+   **Add PostgreSQL**. A Railway cria o serviço (geralmente chamado `Postgres`) e já gera
+   as variáveis de conexão internamente — você não digita usuário/senha, ela gera.
+2. **Serviço da wuzapi**: New → **Deploy from GitHub repo** apontando para um fork de
+   `github.com/asternic/wuzapi` (Railway builda o `Dockerfile` do repo, que já existe lá).
+3. **Variables** do serviço wuzapi — aqui está a parte que travou você. Em vez de digitar
+   host/porta/senha do banco à mão, você **referencia** as variáveis do serviço Postgres
+   usando a sintaxe `${{NomeDoServico.VARIAVEL}}` da Railway:
+
+   | Variável (no serviço wuzapi) | Valor |
+   |---|---|
+   | `DB_HOST` | `${{Postgres.PGHOST}}` |
+   | `DB_PORT` | `${{Postgres.PGPORT}}` |
+   | `DB_USER` | `${{Postgres.PGUSER}}` |
+   | `DB_PASSWORD` | `${{Postgres.PGPASSWORD}}` |
+   | `DB_NAME` | `${{Postgres.PGDATABASE}}` |
+   | `DB_SSLMODE` | `disable` (tente isso primeiro; se a conexão falhar, teste `require`) |
+   | `WUZAPI_ADMIN_TOKEN` | valor aleatório longo — gere com `openssl rand -hex 24` |
+   | `WUZAPI_GLOBAL_ENCRYPTION_KEY` | **exatamente 32 caracteres** — gere com `openssl rand -hex 16` (dá 32 chars) |
+   | `WUZAPI_GLOBAL_HMAC_KEY` | mínimo 32 chars — gere com `openssl rand -hex 20` |
+   | `WEBHOOK_FORMAT` | `json` |
+   | `SESSION_DEVICE_NAME` | `Aurus` (aparece como nome do dispositivo no WhatsApp) |
+   | `TZ` | `America/Sao_Paulo` |
+   | `WUZAPI_PORT` | `8080` |
+   | `WUZAPI_ADDRESS` | `0.0.0.0` |
+
+   **Importante:** `${{Postgres.PGHOST}}` só funciona se o serviço de banco realmente se
+   chamar `Postgres` no seu projeto — clique nele e confira o nome exato no topo do card;
+   ajuste a referência se for diferente (ex: `${{Postgres-1.PGHOST}}`). Para ver os nomes
+   exatos das variáveis que o Postgres da Railway expõe, abra o serviço Postgres → aba
+   **Variables** e copie de lá — o autocomplete da Railway (`${{`) também lista as opções
+   ao digitar dentro do campo de variável de outro serviço.
+4. **Networking** (no serviço wuzapi): gere um domínio público (**Settings → Networking →
+   Generate Domain**) e confirme que a **porta-alvo é 8080** (bate com `WUZAPI_PORT`).
    HTTPS já vem pronto — essencial p/ o webhook e p/ o `WUZAPI_BASE_URL`.
-5. Confirme que o plano da Railway mantém o serviço **sempre ligado** (sem sleep) — a sessão
+5. **Sem volume necessário** nesta versão — a sessão do WhatsApp fica no Postgres, não em
+   arquivo. Isso é uma boa notícia: redeploys não perdem a sessão.
+6. Confirme que o plano da Railway mantém o serviço **sempre ligado** (sem sleep) — a sessão
    do WhatsApp cai se o container dormir.
 
 Guarde a URL pública: `https://SEU-APP.up.railway.app` (vira o valor das duas vars de URL abaixo).
