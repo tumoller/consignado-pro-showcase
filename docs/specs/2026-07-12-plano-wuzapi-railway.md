@@ -73,20 +73,95 @@ wuzapi + um banco Postgres.
 
 Guarde a URL pública: `https://SEU-APP.up.railway.app` (vira o valor das duas vars de URL abaixo).
 
-## Passo 2 — Fiação das variáveis (3 lugares)
+## Passo 2 — Fiação das variáveis
 
-Mesma URL da Railway aparece com **nomes diferentes** em cada lugar — atenção:
+**Correção 2026-07-12 (2):** o projeto local roda com `npm run dev` (Vite puro) — não há
+`vercel.json` nem `vercel dev` rodando, então os proxies `api/wuzapi/*.js` (que só existem
+como Vercel Serverless Functions) **não respondem nada agora**. O botão "Criar instância" em
+`/instances` vai dar 404 localmente até o projeto ser deployado na Vercel (ou você rodar
+`vercel dev`, que exige login na Vercel — o user decidiu adiar isso pro fim do MVP).
+
+**Isso não bloqueia o teste do sistema**: `whatsapp-inbound`, `send-whatsapp` e
+`extrair-extrato` são Edge Functions do Supabase — funcionam independente da Vercel. Só a
+tela `/instances` (criar/QR/status/deletar pela UI) depende do proxy Vercel. Solução: criar
+a instância e parear via **curl direto** (Passo 2-bis abaixo), sem tocar na Vercel. Quando a
+Vercel entrar em cena (fim do MVP), a tela `/instances` passa a funcionar sozinha com as
+mesmas variáveis abaixo — nada no banco muda.
+
+Variáveis por lugar (mesma URL Railway, nomes diferentes):
 
 | Onde | Variável | Valor |
 |------|----------|-------|
 | **Railway** (wuzapi) | `WUZAPI_ADMIN_TOKEN` | token admin aleatório |
-| **Vercel** (proxies do dash) | `WUZAPI_URL` | `https://SEU-APP.up.railway.app` |
+| **Vercel** (só quando for deployar) | `WUZAPI_URL` | `https://SEU-APP.up.railway.app` |
 | **Vercel** | `WUZAPI_ADMIN_TOKEN` | o MESMO token admin da Railway |
 | **Vercel** | `N8N_WEBHOOK_URL_FOR_WUZAPI` | `https://lxpjokhihxccpuspqeuw.supabase.co/functions/v1/whatsapp-inbound?token=SEU_WEBHOOK_SECRET` |
 | **Supabase** (Edge Functions → Secrets) | `WUZAPI_BASE_URL` | `https://SEU-APP.up.railway.app` |
 | **Supabase** | `WEBHOOK_SECRET` | segredo longo (o mesmo do `?token=` acima) |
 | **Supabase** | `ANTHROPIC_API_KEY` | sua chave Anthropic |
 | **Supabase** | `GEMINI_API_KEY` | sua chave Gemini (p/ ler PDF) |
+
+## Passo 2-bis — Criar e parear a instância SEM Vercel (curl direto)
+
+Rotas confirmadas no código-fonte da wuzapi (`handlers.go`, branch main):
+`POST /admin/users` (auth admin), `POST /session/connect` e `GET /session/qr` (auth por
+instância, header `token`).
+
+1. **Health check**:
+   ```bash
+   curl https://wuzapi-production-21ee.up.railway.app/health
+   ```
+
+2. **Criar a instância** (troque `SEU_ADMIN_TOKEN`; escolha você mesmo o `token` da
+   instância — não precisa ser o telefone, pode ser um apelido tipo `aurus-principal`):
+   ```bash
+   curl -X POST https://wuzapi-production-21ee.up.railway.app/admin/users \
+     -H "Authorization: SEU_ADMIN_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "aurus-principal",
+       "token": "ESCOLHA_UM_TOKEN_DA_INSTANCIA",
+       "webhook": "https://lxpjokhihxccpuspqeuw.supabase.co/functions/v1/whatsapp-inbound?token=SEU_WEBHOOK_SECRET",
+       "events": "Message"
+     }'
+   ```
+   Resposta esperada: `{"code":201,"data":{"id":"...","name":"...","token":"..."},"success":true}`.
+   Guarde o `data.id` (é o `instance_id`).
+
+3. **Registrar no Supabase** — rode no SQL Editor do projeto (substitua os valores):
+   ```sql
+   insert into user_instances (instance_id, name, token, workspace_id)
+   values ('ID_RETORNADO_NO_PASSO_2', 'aurus-principal', 'ESCOLHA_UM_TOKEN_DA_INSTANCIA', 1);
+   ```
+
+4. **Conectar a sessão** (header `token` = o token da instância, NÃO o admin):
+   ```bash
+   curl -X POST https://wuzapi-production-21ee.up.railway.app/session/connect \
+     -H "token: ESCOLHA_UM_TOKEN_DA_INSTANCIA" \
+     -H "Content-Type: application/json" \
+     -d '{"Subscribe": ["Message"], "Immediate": false}'
+   ```
+
+5. **Pegar o QR** (espere uns 2-3s após o connect):
+   ```bash
+   curl https://wuzapi-production-21ee.up.railway.app/session/qr \
+     -H "token: ESCOLHA_UM_TOKEN_DA_INSTANCIA"
+   ```
+   Retorna `{"code":200,"data":{"QRCode":"2@....."},"success":true}`. O valor de `QRCode` é
+   a string bruta de pareamento — precisa virar imagem QR pra escanear. Cole esse valor num
+   gerador de QR (ex: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=<valor
+   urlencoded>`) ou peça pra eu renderizar no preview do browser.
+   Escaneie com **WhatsApp → Aparelhos conectados → Conectar um aparelho** no número que vai
+   atender.
+
+6. **Confirmar conexão**:
+   ```bash
+   curl https://wuzapi-production-21ee.up.railway.app/session/status \
+     -H "token: ESCOLHA_UM_TOKEN_DA_INSTANCIA"
+   ```
+   Deve indicar conectado/logado.
+
+A partir daqui o pipeline já está de pé: mande uma mensagem de teste pro número pareado.
 | **Supabase** | `DEFAULT_WORKSPACE_ID` | `1` (opcional; default já é 1) |
 
 > As chaves você cadastra direto nos painéis — eu não manuseio segredos.
