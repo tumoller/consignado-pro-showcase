@@ -182,7 +182,7 @@ export const Sidebar = () => {
                     : 'text-sidebar-foreground'
                 )}
               >
-                <item.icon className="h-5 w-5 flex-shrink-0 lg:mr-3" />
+                <item.icon className={cn('h-5 w-5 flex-shrink-0 mr-3', collapsed && 'lg:mr-0')} />
                 <span className={cn(collapsed && 'lg:hidden')}>{item.name}</span>
               </NavLink>
             );

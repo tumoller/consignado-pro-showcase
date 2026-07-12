@@ -40,11 +40,26 @@ import { useContactTimeline, TimelineItem } from '@/hooks/useHojeData';
 const DIFF_FIELD_LABELS: Record<string, string> = {
   status: 'Status',
   saldo: 'Valor operado',
-  banco: 'Banco',
+  banco: 'Banco (dados bancários)',
   nome: 'Nome',
   cpf: 'CPF',
   departamento: 'Departamento',
   qualificacao: 'Qualificação',
+  rua: 'Rua',
+  numero: 'Número',
+  complemento: 'Complemento',
+  bairro: 'Bairro',
+  cidade: 'Cidade',
+  uf: 'UF',
+  cep: 'CEP',
+  email: 'E-mail',
+  phone_number: 'Telefone',
+  agencia: 'Agência',
+  conta: 'Conta',
+  rg: 'RG',
+  data_nasc: 'Nascimento',
+  esp_benef: 'Espécie benefício',
+  nb_mat: 'NB/Matrícula',
 };
 
 const fmtDiffValue = (field: string, v: unknown): string => {
@@ -219,7 +234,12 @@ export const ContactSheet = ({
 }) => {
   const detail = useContactDetail(contactId);
   const c = detail.data?.contact;
-  const propostas = detail.data?.propostas ?? [];
+  // Ordena pela mesma expressão exibida na UI (data_cip_averb || created_at), mais recente no topo
+  const propostas = [...(detail.data?.propostas ?? [])].sort(
+    (a, b) =>
+      new Date(b.data_cip_averb || b.created_at).getTime() -
+      new Date(a.data_cip_averb || a.created_at).getTime()
+  );
   const comissaoPaga = propostas
     .filter((p) => isPaga(p.status))
     .reduce((acc, p) => acc + (Number(p.comissao) || 0), 0);
@@ -421,9 +441,7 @@ export const ContactSheet = ({
                   open={isPropostaOpen}
                   onOpenChange={setIsPropostaOpen}
                   proposta={selectedProposta}
-                  presetContact={
-                    !selectedProposta && c ? { id: c.id, nome: c.nome } : null
-                  }
+                  presetContact={c ? { id: c.id, nome: c.nome } : null}
                 />
               </TabsContent>
 

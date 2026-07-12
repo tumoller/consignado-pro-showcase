@@ -30,7 +30,7 @@ import {
   useBancosAtivos,
   fmtDate,
 } from '@/hooks/useCrmData';
-import { useProdutosAtivos, useConveniosNegocioAtivos } from '@/hooks/useConfigNegocio';
+import { useProdutosAtivos, useConveniosNegocioAtivos, usePromotoras } from '@/hooks/useConfigNegocio';
 
 interface ProposalFormDialogProps {
   open: boolean;
@@ -51,6 +51,7 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
   const { data: bancos } = useBancosAtivos();
   const { data: produtos } = useProdutosAtivos(activeWorkspaceId);
   const { data: conveniosNegocio } = useConveniosNegocioAtivos(activeWorkspaceId);
+  const { data: promotoras } = usePromotoras(activeWorkspaceId);
 
   // Estados do formulário
   const [contactId, setContactId] = useState<number | null>(null);
@@ -82,9 +83,13 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
   useEffect(() => {
     if (open) {
       if (proposta) {
+        // O contato vinculado vem sempre de contact_id; o nome exibido prioriza o
+        // presetContact (passado pela ficha do cliente) pois o join contacts pode
+        // não vir carregado dependendo de onde a proposta foi aberta.
+        const nomeExibido = presetContact?.nome ?? proposta.contacts?.nome ?? '';
         setContactId(proposta.contact_id);
-        setSelectedContactName(proposta.contacts?.nome || '');
-        setSearchContact(proposta.contacts?.nome || '');
+        setSelectedContactName(nomeExibido);
+        setSearchContact(nomeExibido);
         setOperacao(proposta.operacao || proposta.produto || '');
         setConvenio(proposta.convenio || '');
         setBcoOp(proposta.bco_op || '');
@@ -125,6 +130,16 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
       }
     }
   }, [open, proposta, presetContact]);
+
+  // Opções de promotora: cadastradas no workspace + a atual da proposta, caso ela
+  // não esteja (mais) na lista cadastrada (para não perder o dado ao editar).
+  const promotoraOptions = useMemo(() => {
+    const nomes = (promotoras ?? []).map((p) => p.nome);
+    if (promotora && !nomes.includes(promotora)) {
+      return [...nomes, promotora];
+    }
+    return nomes;
+  }, [promotoras, promotora]);
 
   // Comissão estimada calculada em tempo real (read-only)
   const estimatedCommission = useMemo(() => {
@@ -360,12 +375,22 @@ export const ProposalFormDialog: React.FC<ProposalFormDialogProps> = ({
 
                 <div className="space-y-1 col-span-2">
                   <Label htmlFor="promotora">Promotora</Label>
-                  <Input
-                    id="promotora"
-                    placeholder="Ex: GLM, LEV, FACTA"
-                    value={promotora}
-                    onChange={(e) => setPromotora(e.target.value)}
-                  />
+                  <Select
+                    value={promotora || 'none'}
+                    onValueChange={(val) => setPromotora(val === 'none' ? '' : val)}
+                  >
+                    <SelectTrigger id="promotora">
+                      <SelectValue placeholder="Selecione a promotora" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma</SelectItem>
+                      {promotoraOptions.map((nome) => (
+                        <SelectItem key={nome} value={nome}>
+                          {nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </TabsContent>

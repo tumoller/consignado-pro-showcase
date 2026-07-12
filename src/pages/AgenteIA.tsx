@@ -285,7 +285,7 @@ const AgenteIA = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <Label>Máx. chamadas/dia</Label>
+                  <Label>Máximo de chamadas por dia</Label>
                   <Input
                     type="number"
                     min={0}
@@ -293,14 +293,14 @@ const AgenteIA = () => {
                     onChange={(e) => setModeloForm((f) => (f ? { ...f, max_chamadas_dia: e.target.value } : f))}
                   />
                   <p className="text-xs text-muted-foreground">
-                    1 chamada = 1 resposta gerada pela IA (mensagens recebidas não contam). Use 0 para ilimitado.
+                    Limite total de respostas da IA para todo o workspace por dia (reseta à meia-noite, horário de São Paulo). 1 chamada = 1 resposta gerada pela IA. 0 = ilimitado.
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {Number(modeloForm?.max_chamadas_dia) === 0 ? 'Ilimitado' : `Limite: ${modeloForm?.max_chamadas_dia}/dia`}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <Label>Máx. chamadas/conversa</Label>
+                  <Label>Máximo de chamadas por conversa (por dia)</Label>
                   <Input
                     type="number"
                     min={0}
@@ -308,7 +308,7 @@ const AgenteIA = () => {
                     onChange={(e) => setModeloForm((f) => (f ? { ...f, max_chamadas_conversa: e.target.value } : f))}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Evita abuso/spam e estouro de contexto numa mesma conversa. Use 0 para ilimitado.
+                    Limite de respostas da IA para o MESMO contato por dia (reseta à meia-noite, horário de São Paulo). Evita abuso/spam e estouro de contexto. 0 = ilimitado.
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {Number(modeloForm?.max_chamadas_conversa) === 0 ? 'Ilimitado' : `Limite: ${modeloForm?.max_chamadas_conversa}/conversa`}

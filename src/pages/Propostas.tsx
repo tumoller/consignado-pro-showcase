@@ -101,6 +101,15 @@ const Propostas = () => {
           (p.bco_port ?? '').toLowerCase().includes(s)
       );
     }
+
+    // Ordena pela mesma expressão exibida na coluna "Data" (data_cip_averb || created_at),
+    // mais recente no topo — evita a lista parecer "fora de ordem" visualmente.
+    list = [...list].sort(
+      (a, b) =>
+        new Date(b.data_cip_averb || b.created_at).getTime() -
+        new Date(a.data_cip_averb || a.created_at).getTime()
+    );
+
     return list;
   }, [propostas.data, search, statusFilter, periodFilter, viewMode]);
 

@@ -1,5 +1,6 @@
 // src/pages/Contatos.tsx — Ficha do Cliente, KPIs, Gráfico de Convênios, Filtros e Lista Premium
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Search,
   PlusCircle,
@@ -29,6 +30,7 @@ import {
 
 const Contatos = () => {
   const { activeWorkspaceId } = useWorkspace();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -39,6 +41,21 @@ const Contatos = () => {
   const [convenioFilter, setConvenioFilter] = useState('todos');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+
+  // Lê o query param `open` e abre a ficha do cliente automaticamente
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (openId && !isNaN(Number(openId))) {
+      const id = Number(openId);
+      setSelectedId(id);
+      // Limpa o param da URL para não reabrir em navegações futuras
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('open');
+        return next;
+      });
+    }
+  }, [searchParams, setSearchParams]);
 
   const contacts = useContacts(activeWorkspaceId, search);
 
